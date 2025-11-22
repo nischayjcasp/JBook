@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///home/jcaspahm015/Desktop/Nischay/JBook/jbook_front_end/app/%28home%29/page.tsx"],"sourcesContent":["import Image from \"next/image\";\n\nexport default function Home() {\n  return <div>Home page</div>;\n}\n"],"names":[],"mappings":";;;;;;AAEe,SAAS;IACtB,qBAAO,8OAAC;kBAAI;;;;;;AACd"}}]
-}

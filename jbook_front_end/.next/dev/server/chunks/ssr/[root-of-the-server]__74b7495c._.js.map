@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 18, "column": 0}, "map": {"version":3,"sources":["file:///home/jcaspahm015/Desktop/Nischay/JBook/jbook_front_end/app/%28auth%29/page.tsx"],"sourcesContent":["import Image from \"next/image\";\nimport jbookLogo from \"@/app/favicon.ico\";\n\nexport default function Home() {\n  return (\n    <div className=\"w-full\">\n      {/* Login Form */}\n      <div className=\"w-1/2 px-24 py-10\">\n        from\n      </div>\n\n      {/* Sign Up Form */}\n      <div></div>\n    </div>\n  );\n}\n"],"names":[],"mappings":";;;;;;AAGe,SAAS;IACtB,qBACE,8OAAC;QAAI,WAAU;;0BAEb,8OAAC;gBAAI,WAAU;0BAAoB;;;;;;0BAKnC,8OAAC;;;;;;;;;;;AAGP"}}]
-}
