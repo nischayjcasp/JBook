@@ -1,7 +1,18 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #da241c;
+  --color-primary: #e1533c;
+}
+
+html,
+body {
+  -ms-overflow-style: none; /* Internet Explorer 10+ */
+  scrollbar-width: none; /* Firefox, Safari 18.2+, Chromium 121+ */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none; /* Older Safari and Chromium */
 }
 
 .hideScrollBar {
@@ -10,4 +21,24 @@
 }
 .hideScrollBar::-webkit-scrollbar {
   display: none; /* Older Safari and Chromium */
+}
+
+.myContainer {
+  width: 100%;
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+@media (min-width: 640px) {
+  .myContainer {
+    padding-left: 32px;
+    padding-right: 32px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .myContainer {
+    padding-left: 50px;
+    padding-right: 50px;
+  }
 }
