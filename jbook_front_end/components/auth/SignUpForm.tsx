@@ -97,7 +97,7 @@ const SignUpForm = ({ auth }: { auth: authProps }) => {
                 className="w-[18px] h-[18px]"
               />
               <span className="font-semibold text-lg">
-                Continue with Google
+                Continue with Facebook
               </span>
             </button>
           </li>
@@ -110,7 +110,7 @@ const SignUpForm = ({ auth }: { auth: authProps }) => {
             >
               <FaLinkedin className="w-[18px] h-[18px] text-[#2e78b6]" />
               <span className="font-semibold text-lg">
-                Continue with Google
+                Continue with LinkedIn
               </span>
             </button>
           </li>

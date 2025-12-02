@@ -1,5 +1,6 @@
-import Auth from "./Auth";
+import MainLoader from "../loading";
+import Login from "./Login";
 
 export default function Page() {
-  return <Auth />;
+  return <Login />;
 }

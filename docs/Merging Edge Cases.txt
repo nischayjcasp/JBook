@@ -1,0 +1,149 @@
+Merging Edge Cases Solution:
+  NOTE: Find possible solution for all case and make diagram or flow, please find the industry standard solution and mention the reference.
+    1. user already signed up with email & password now sign up with same email
+      Solution:
+        - if user email is already registered with us then we simply show user that we have one account already registed with please sign in.
+        - if user try to sign up with third party provider which have same email then we ask user that we have found account register with that email id, if user already linked that provider with local account then we sign in user or we sign in user then register new third party auth provider.
+      Refrence: GitHub, Medium, Reddit
+
+    2. same user sign up with different providers
+      Solution:
+        - If user third party provider return the same email which is registered with us then we simply link that auth provider to user local account then user can login with that auth provider in future.
+      Refrence: GitHub, Medium, Reddit
+
+    3. user already signed up with third party provider now try to sing up with email and password
+      Solution:
+        - If user already register through third party provider with email id and now user try to sign up with same email & password
+        first we will sent verification code to register email, after verification user can sing in to his local account.
+      Refrence: GitHub, Medium, Reddit
+
+    4. other user try to sign up with other users email or mobile no.
+      Solution:
+        - any user try to sign up with any information we always verify the information before creating the account
+          - email verification
+          - mobile no. verification
+      Refrence: GitHub, Medium, Reddit, RedBus
+
+    5. user already deleted its old account now try to login with same email id.
+      Note: if user want to deleted the user then he must have password set other we will ask then to first set password then we will delete the account.
+      Solution: Deleted account is not recoverable, when user deleted account we get user password and consent then delete it once account get deleted user have to sign up again.
+      reference: Reddit
+
+    6. user try to login with third party provider from other device(different IP then usual device)
+      Solution: if user try to login from any new device with any method, we always perform Multi Factor Authentication(MFA) like email or mobile verification then user can sign in if user failed to do that we can not allow login even if user enter correct password.
+      - we also sent email to primary email with information of new login message like(Device type(window, linux), Time of the attempt, Approximate location and IP addres, browser type, etc.)
+      Refrence: Google.
+
+    7. user have multiple failed login attempts one after one in day
+      Solution: when user have 5 failed login in 5 minute we can temporarily block the user account for 30 minute without any failed login other wise it will reset again for 30 minute.
+      After account unblocked user have to login with MFA(email verificaion);
+      Refrence: Google, Github, as per OWASP(https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/03-Testing_for_Weak_Lock_Out_Mechanism) 
+
+    8. user want to recover deleted account
+      Solution: Deleted account is non-recoverable so once deleted we can not recover it, but user can sign up again with old email id.
+      Reference: Reddit.
+
+    9. user claims he is not receiving the verification email
+      Solution: If user is not getting emails from out side the we will check as out backend side whether we are sending the emails or not. Ask user to check spam folder or clear browser cache then try again.
+      Refrence: Google search
+
+    10. Unverified merger
+      Solution: For every account merger we always verify the all user account which are going to merged into. for Verification we sent verification links to all accounts primary email ids. After verification we allows the user to process merger.
+      Refrence: JETBRAIN
+
+    11 user try to deleted account from his other device ip instead for usual device
+      Solution: As per answer of Q.6 we always verify the user for any new login from othern then usual device, once verification user can deleted account but need the password and email verifcation code.
+      Refrence: Reddit
+
+    12. Conflicting User Information or data OR Merge conflict resolution details
+      Note: by default we have selected the primary account information    
+      if any field has no value in primary then we will select values from secondary
+      if secondary account also has no value too then we will highlight that field and ask for user input then we can go ahead.    - user might have some conflication infromations as per cases listed below      
+
+      - both user have same mobile number        
+      Solution: in real word one user might have multiple mob. no. so we simply ask user to which mobile no. we consider as primary      
+      
+      - both user might have same Date of birth        
+      Solution: user might have created different accounts with unique emails with different date of birth so we simply ask user to which is original date of birth.      
+
+      - both user might have same mobile, dob but display name is different        
+      Solution: user might have created different accounts with unique emails with different display name so we simply ask user to which one is primary display name and also set username(unique) we set.      
+
+      - both user might have password or no password or one user have other user have no password         
+      Solution: if users have signed up by third party provider then user might not have any password in that case we ask user to choose which password as primary password. If user do not want any password then we just authenticate user by third party provider(primary) token on every login.          
+      
+      Conslusion : whenever there is conflict in infotmation we always ask user to choose which information they perefer as primary.    
+
+      If some inportant information is require we simply ask user to complete the profile by entering those information.
+
+    13. Error occurs while merging, 500, 404, no internet, merger interrupted
+       If any field has no value in primary then we will select values from secondary    
+       If secondary account also has no value too then we will highlight that field and ask for user input then we can go ahead.    - user might have some conflication infromations as per cases listed below      
+       
+       - both user have same mobile number        
+       Solution: in real word one user might have multiple mob. no. so we simply ask user to which mobile no. we consider as primary      
+       
+       - both user might have same Date of birth        
+       Solution: user might have created different accounts with unique emails with different date of birth so we simply ask user to which is original date of birth.      
+       
+       - both user might have same mobile, dob but display name is different        
+       Solution: user might have created different accounts with unique emails with different display name so we simply ask user to which one is primary display name and also set username(unique) we set.      
+       
+       - both user might have password or no password or one user have other user have no password         
+       Solution: if users have signed up by third party provider then user might not have any password in that case we ask user to choose which password as primary password. If user do not want any password then we just authenticate user by third party provider(primary) token on every login.          
+       
+       Conslusion : Whenever there is conflict in infotmation we always ask user to choose which information they perefer as primary.    
+       If some inportant information is require we simply ask user to complete the profile by entering those information.
+
+    14. Large data merging
+       - When user data is  too big then it may take more time to complete the merging process it is inconvinient to user wait untill merger is complete.
+
+       Solution: when merger is taking  more time we will make merging process in background instead of showing the loader to user all time untill merger is finished. During the merger user can view all thid data or information but can not create/update/delete the information.
+
+    15. Email / OTP verification not completed
+      - what if after merger process started and user never verify the emails that we have sent for verification.    
+      
+      Solution: we will put the time for 60 sec after email sent if user fail to verfy in 60 seconds then we close the merging process. User have to restart again for merger.
+
+    16. rollback mechanism : user want to recover accounts after merger completed.
+      -Backup:       
+      - before we start merging process we will take backup of both account(primary + secondary)      
+      - we will create two temp account with name: 
+        Primary :abc_backup_timestamp@xxx.xxx      
+        Secondary :abc1_backup_timestamp@xxx.xxx      
+      - Both temp account has grace period of 15 days, user can recover it account within 15 days then secondary account data will be removed permanently.
+      Refrence:https://help.salesforce.com/s/articleView?id=xcloud.home_delete.htm&type=5      
+
+    17. user send change password request from other device ip
+      - as per Q.6 answer if user is verified in new device then he can change the password with MFA(email OR mobile verification)
+
+    18. user forgot password & can have third party provided login access
+      Solution: If user forgot the password he can still login with third party auth provider login if password is not set otherwise he can follows the forgot password process and after MFA he can generate new password.      
+      
+      Refrence: Github, Reddit.
+
+    19. user want to merge multiple account (more than 2)
+      - user can follows the same process for merger as for 2 account,choose primary > verification > data conflict > merger > finish.
+
+    20. user accidentally delete the account, now want to recover it
+      Solution: we can not recover the deleted account, because for account deletion we can user consent, password and also do MFA. User can sing up again but we can not recover it.
+
+    21. nested merged account what it user want to recover all account separately, eg. user first merged a+b  => a then user merged a+c => a now user wants a,b,c
+      Solution: If user want to merge (a+b) already merge account and c a other normal account then we will follow the same process for account merger process and after merger we can still recover the accounts (a+b) and c within 15 days grace period.
+      But (a+b) only be recover to a & b if they are merged with 15 days otherwise we can not recover them.
+
+
+--------------------------------------------------------------------------------------
+merger logs
+Next Day Todos:
+
+Date: 02/12/2025
+Merger Project Flow + Excel + PPT Approval: In process
+Merger project UI Day 1:
+  Login
+  Sign up
+  Dashboard
+  Settings Dialog
+  Forgot Password
+  Reset password 
+  Delete account dialog
