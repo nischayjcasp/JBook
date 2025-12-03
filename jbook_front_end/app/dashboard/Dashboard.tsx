@@ -10,11 +10,12 @@ import dayjs from "dayjs";
 import { IoMdClose } from "react-icons/io";
 import defaultImage from "@/app/assets/images/sampleImage.webp";
 import Image from "next/image";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { VisuallyHiddenInput } from "@/app/dashboard/layout";
 
 const Dashboard = () => {
+  const pageRef = useRef<HTMLDivElement | null>(null);
   const [editDialog, setEditDialog] = useState<boolean>(false);
   const posts = [
     1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5,
@@ -37,6 +38,12 @@ const Dashboard = () => {
     setFilteredPosts(
       posts.slice((value - 1) * 9, posts[value * 9] ? value * 9 : undefined)
     );
+    if (pageRef.current) {
+      pageRef.current.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    }
   };
 
   const {
@@ -70,7 +77,10 @@ const Dashboard = () => {
 
   return (
     <>
-      <div className="w-full flex flex-col gap-5 min-h-screen">
+      <div
+        className="w-full flex flex-col gap-5 max-h-screen overflow-y-auto"
+        ref={pageRef}
+      >
         {/* Search bar */}
         <div className="w-full bg-white py-5 sticky top-0 left-0 right-0">
           <form
@@ -93,7 +103,7 @@ const Dashboard = () => {
         </div>
 
         {/* List of post */}
-        <div className="flex-1 inline-grid grid-cols-3 gap-5">
+        <div className={`px-16 flex-1 inline-grid grid-cols-3 gap-5`}>
           {filteredPosts &&
             filteredPosts.map((posts, inx) => (
               <PostCard

@@ -15,7 +15,7 @@ const PostCard = ({ openEditDialog }: PostCardProps) => {
   return (
     <Link
       href="dashboard/post/1"
-      className="w-full max-h-[370px] p-4 rounded-md border border-slate-200"
+      className="w-full max-h-[400px] flex flex-col p-4 rounded-md border border-slate-200"
       style={{
         boxShadow: "0 0 10px rgba(0,0,0,0.2)",
       }}
@@ -64,7 +64,7 @@ const PostCard = ({ openEditDialog }: PostCardProps) => {
         <span className="mx-1 text-blue-600">more</span>
       </p>
 
-      <Image src={defaultImage} alt="User post image" className="w-full" />
+      <Image src={defaultImage} alt="User post image" className="flex-1" />
     </Link>
   );
 };

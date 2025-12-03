@@ -15,7 +15,7 @@ import { Controller, useForm } from "react-hook-form";
 import { FaSearch } from "react-icons/fa";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   IoArrowBack,
   IoSearch,
@@ -37,6 +37,8 @@ import { ReactNode } from "react";
 import { FaCirclePlus } from "react-icons/fa6";
 import defaultImage from "@/app/assets/images/sampleImage.webp";
 import Image from "next/image";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { userProfileSchema } from "@/lib/schemas/settings.schema";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -53,9 +55,9 @@ export const VisuallyHiddenInput = styled("input")({
 const UserLayout = ({ children }: { children: ReactNode }) => {
   const [sideBar, setSideBar] = useState<boolean>(true);
   const [userAccAnchor, setUserAccAnchor] = useState<null | HTMLElement>(null);
-  const [settingDialog, setSettingDialog] = useState<boolean>(true);
+  const [settingDialog, setSettingDialog] = useState<boolean>(false);
   const [changePassDialog, setChangePassDialog] = useState<boolean>(false);
-  const [delAccDialog, setDelAccDialog] = useState<boolean>(true);
+  const [delAccDialog, setDelAccDialog] = useState<boolean>(false);
   const [addDialog, setAddDialog] = useState<boolean>(false);
   const [settingActiveTab, setSettingActiveTab] = useState<number>(0);
   const [accountPassEye, setAccountPassEye] = useState<boolean>(false);
@@ -68,6 +70,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [changeNewPassEye, setChangeNewPassEye] = useState<boolean>(false);
   const [changeCNewPassEye, setChangeCNewPassEye] = useState<boolean>(false);
   const [deleteAccPassEye, setDeleteAccPassEye] = useState<boolean>(false);
+  const [userPic, setUerPic] = useState(null);
 
   const openSettingDialog = () => {
     setSettingDialog(true);
@@ -114,22 +117,25 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const {
     handleSubmit: accountSubmit,
     control: accountControl,
+    watch: accountFormWatch,
     setValue: accountSetValue,
     getValues: accountGetValues,
     clearErrors: accountClearErrors,
     reset: accountReset,
     formState: { errors: accountErrors },
   } = useForm({
-    // resolver: yupResolver(loginSchema),
-    // defaultValues: {
-    //   login_email: "",
-    //   login_password: "",
-    // },
+    resolver: yupResolver(userProfileSchema),
   });
 
   const handleAccountSave = (data: any) => {
     console.log(data);
   };
+
+  const userPhoto: any = accountFormWatch("user_photo");
+
+  useEffect(() => {
+    console.log("userPhoto", userPhoto);
+  }, [userPhoto]);
 
   //Add post form
   const {
@@ -380,10 +386,10 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
         </Dialog>
       </div>
 
-      <div className="flex-1 relative px-16 overflow-y-auto">
+      <div className="flex-1 relative overflow-hidden">
         <button
           type="button"
-          className={`absolute top-4 left-4 p-2 cursor-pointer transition-[scale] duration-500 ${
+          className={`z-999 absolute top-4 left-4 p-2 cursor-pointer transition-[scale] duration-500 ${
             sideBar ? "scale-0" : "scale-100"
           }`}
           onClick={() => setSideBar(!sideBar)}
@@ -447,6 +453,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
             {/* Accounts */}
             {settingActiveTab === 0 && (
               <div className="">
+                {/* Header */}
                 <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
                   <p>Account</p>
                   <button
@@ -458,32 +465,47 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   </button>
                 </div>
 
-                <form className="p-4">
+                <form
+                  className="p-4 pb-0"
+                  onSubmit={accountSubmit(handleAccountSave)}
+                >
                   {/* Photo */}
                   <div className="mb-7">
                     <p className="font-semibold mb-2">Photon</p>
-                    <div className="flex items-center gap-3">
+                    <div className="flex gap-4">
                       <div>
                         <Avatar
                           alt="Remy Sharp"
-                          src="/userDefaultPic.jpg"
+                          src={"/userDefaultPic.jpg"}
                           sx={{ width: "90px", height: "90px" }}
                         />
                       </div>
-                      <div>
-                        <div className="flex gap-2">
-                          <label>
-                            <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer">
-                              Choose photo
-                            </p>
-                            <VisuallyHiddenInput
-                              type="file"
-                              onChange={(event) =>
-                                console.log(event.target.files)
-                              }
-                              multiple
-                            />
-                          </label>
+                      <div className="flex-1">
+                        <div className="flex gap-2 mb-4">
+                          <Controller
+                            name="user_photo"
+                            control={accountControl}
+                            render={({ field: { name, value, onChange } }) => (
+                              <label>
+                                <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer">
+                                  Choose photo
+                                </p>
+                                <VisuallyHiddenInput
+                                  type="file"
+                                  name={name}
+                                  onChange={(event) => {
+                                    if (event.target.files) {
+                                      accountSetValue(
+                                        "user_photo",
+                                        event.target.files
+                                      );
+                                    }
+                                  }}
+                                />
+                              </label>
+                            )}
+                          />
+
                           <button
                             type="button"
                             className="px-2.5 py-1.5 text-sm rounded-md bg-red-600 text-white font-semibold cursor-pointer"
@@ -491,7 +513,17 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             Remove photo
                           </button>
                         </div>
-                        {/* <p className="text-red-500 text-sm px-3 py-1">Error</p> */}
+
+                        <div>
+                          <p className="max-w-full overflow-x-hidden min-h-6 text-black/70 text-xs px-3">
+                            {userPhoto && userPhoto[0].name}
+                          </p>
+                          <p className="min-h-6  text-red-500 text-xs px-3">
+                            {accountErrors.user_photo
+                              ? accountErrors.user_photo?.message
+                              : " "}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -499,24 +531,47 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   {/* Username */}
                   <div className="mb-3 ">
                     <Controller
-                      name="settings_username"
+                      name="user_username"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <TextField
                           label="Username"
+                          disabled
+                          name={name}
+                          value={value ?? "Abc"}
+                          variant="outlined"
+                          className="w-[400px]"
+                          helperText={
+                            accountErrors.user_username?.message
+                              ? `${accountErrors.user_username.message}`
+                              : " "
+                          }
+                        />
+                      )}
+                    />
+                  </div>
+
+                  {/* Display name */}
+                  <div className="mb-3 ">
+                    <Controller
+                      name="user_display_name"
+                      control={accountControl}
+                      render={({ field: { value, onChange, name } }) => (
+                        <TextField
+                          label="Display Name"
                           name={name}
                           value={value}
                           onChange={onChange}
                           variant="outlined"
                           className="w-[400px]"
                           error={
-                            accountErrors.settings_username?.message
+                            accountErrors.user_display_name?.message
                               ? true
                               : false
                           }
                           helperText={
-                            accountErrors.settings_username?.message
-                              ? `${accountErrors.settings_username.message}`
+                            accountErrors.user_display_name?.message
+                              ? `${accountErrors.user_display_name.message}`
                               : " "
                           }
                         />
@@ -527,7 +582,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   {/* Birthdate */}
                   <div className="mb-3">
                     <Controller
-                      name="account_dob"
+                      name="user_dob"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -539,11 +594,11 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             onChange={onChange}
                             slotProps={{
                               textField: {
-                                error: accountErrors.account_dob?.message
+                                error: accountErrors.user_dob?.message
                                   ? true
                                   : false,
-                                helperText: accountErrors.account_dob?.message
-                                  ? `${accountErrors.account_dob.message}`
+                                helperText: accountErrors.user_dob?.message
+                                  ? `${accountErrors.user_dob.message}`
                                   : " ",
                               },
                             }}
@@ -561,7 +616,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   {/* Gender */}
                   <div className="mb-2">
                     <Controller
-                      name="account_gender"
+                      name="user_gender"
                       control={accountControl}
                       render={({ field: { name, value, onChange } }) => (
                         <div className="w-[400px]">
@@ -586,8 +641,8 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             </RadioGroup>
                           </div>
                           <p className="text-xs px-3.5 text-[#D32F2F]">
-                            {accountErrors.account_gender?.message ? (
-                              `${accountErrors.account_gender.message}`
+                            {accountErrors.user_gender?.message ? (
+                              `${accountErrors.user_gender.message}`
                             ) : (
                               <>&nbsp;</>
                             )}
@@ -600,7 +655,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   {/* Email */}
                   <div className="mb-2">
                     <Controller
-                      name="account_email"
+                      name="user_email"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <TextField
@@ -623,7 +678,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   <div className="mb-2">
                     <div className="mb-3">
                       <Controller
-                        name="account_password"
+                        name="user_password"
                         control={accountControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
@@ -631,11 +686,13 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             label="Password"
                             placeholder="Enter password "
                             name={name}
-                            value={value ?? "********"}
+                            value={value}
                             disabled
                             onChange={onChange}
                             variant="outlined"
                             className="w-[400px]"
+                            error={false}
+                            helperText={" "}
                           />
                         )}
                       />
@@ -657,22 +714,44 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                       </button>
                     </div>
                   </div>
-                </form>
 
-                <div className="p-4">
-                  <p className="font-semibold mb-3">Delete Account:&nbsp;</p>
-                  <p className="text-sm mb-2">
-                    Deleting your account is permanent. You will immediately
-                    lose access to all your data.{" "}
-                  </p>
-                  <button
-                    type="button"
-                    className="px-2.5 py-1.5 text-sm rounded-md bg-red-600 text-white font-semibold cursor-pointer"
-                    onClick={openDelAccDialog}
-                  >
-                    Delete Account
-                  </button>
-                </div>
+                  {/* Delete Account */}
+                  <div className="my-7">
+                    <p className="font-semibold mb-3">Delete Account:&nbsp;</p>
+                    <p className="text-sm mb-2">
+                      Deleting your account is permanent. You will immediately
+                      lose access to all your data.{" "}
+                    </p>
+                    <button
+                      type="button"
+                      className="px-2.5 py-1.5 text-sm rounded-md bg-red-600 text-white font-semibold cursor-pointer"
+                      onClick={openDelAccDialog}
+                    >
+                      Delete Account
+                    </button>
+                  </div>
+
+                  {/* Save & cancel button */}
+                  <div className="z-10 sticky bottom-0 bg-white flex py-4 border-t border-t-slate-200 justify-end gap-3">
+                    <button
+                      type="button"
+                      className="py-2 px-3 bg-slate-200 hover:bg-slate-200 cursor-pointer  font-semibold text-sm rounded-md"
+                      onClick={() => {
+                        closeSettingDialog();
+                        accountClearErrors();
+                      }}
+                    >
+                      Cancel
+                    </button>
+
+                    <button
+                      type="submit"
+                      className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
 
