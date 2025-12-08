@@ -10,17 +10,22 @@ import { FaLinkedin } from "react-icons/fa";
 import { Controller, useForm } from "react-hook-form";
 import TextField from "@mui/material/TextField";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { loginSchema, LoginSchemaType } from "@/lib/schemas/auth.schema";
-import { useRouter } from "next/navigation";
+import { loginSchema, LoginSchemaType } from "@/src/lib/schemas/auth.schema";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 
 const Login = () => {
   const navigate = useRouter();
+  const searchParams = useSearchParams();
   const [loginPassEye, setLoginPassEye] = useState<boolean>(false);
+
+  useEffect(() => {
+    console.log("Code: ", searchParams.get("code"));
+  }, []);
 
   // Login Form
   const {
@@ -43,6 +48,198 @@ const Login = () => {
     console.log(data);
   };
 
+  //Sign in with google: Front-end
+  const [googleClient, setGoogleClient] = useState<any>(null);
+
+  useEffect(() => {
+    if (window.google) {
+      const client = google.accounts.oauth2.initCodeClient({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        callback: handleGoogleResponse,
+      });
+
+      setGoogleClient(client);
+    }
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    console.log("Code: ", response.code);
+  };
+
+  const handleGoogleLogin = () => {
+    if (!googleClient) return;
+    googleClient.requestCode();
+  };
+
+  // Sign in with google backend code
+
+  // import { NextResponse } from "next/server";
+
+  // export async function POST(req) {
+  //   const { code } = await req.json();
+
+  //   try {
+  //     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({
+  //         code,
+  //         client_id: process.env.GOOGLE_CLIENT_ID,
+  //         client_secret: process.env.GOOGLE_CLIENT_SECRET,
+  //         redirect_uri: "postmessage", // important for popup
+  //         grant_type: "authorization_code",
+  //       }),
+  //     });
+
+  //     const tokens = await tokenRes.json();
+
+  //     const userInfoRes = await fetch(
+  //       "https://www.googleapis.com/oauth2/v3/userinfo",
+  //       {
+  //         headers: { Authorization: `Bearer ${tokens.access_token}` },
+  //       }
+  //     );
+
+  //     const user = await userInfoRes.json();
+
+  //     return NextResponse.json({ success: true, user });
+  //   } catch (e) {
+  //     return NextResponse.json({ error: e.message }, { status: 400 });
+  //   }
+  // }
+
+  //Sign in with facebook
+
+  const loginWithFacebook = () => {
+    FB.login(
+      function (response) {
+        if (response.authResponse) {
+          handleFBResponse(response.authResponse);
+        } else {
+          console.log("User cancelled login");
+        }
+      },
+      { scope: "email,public_profile" }
+    );
+  };
+
+  const handleFBResponse = async (authResp: any) => {
+    // const res = await fetch("/api/facebook-login", {
+    //   method: "POST",
+    //   body: JSON.stringify({ accessToken }),
+    // });
+    // const data = await res.json();
+    console.log("FB Token:", authResp);
+  };
+
+  // Sign in with facebook backend code
+  // import { NextResponse } from "next/server";
+
+  // export async function POST(req) {
+  //   try {
+  //     const { accessToken } = await req.json();
+
+  //     // Hit Facebook Graph API to get user info
+  //     const userRes = await fetch(
+  //       `https://graph.facebook.com/me?fields=id,name,email,picture&access_token=${accessToken}`
+  //     );
+
+  //     const user = await userRes.json();
+
+  //     return NextResponse.json({
+  //       success: true,
+  //       user: {
+  //         id: user.id,
+  //         name: user.name,
+  //         email: user.email,
+  //         picture: user.picture?.data?.url
+  //       }
+  //     });
+
+  //   } catch (e) {
+  //     return NextResponse.json({ error: e.message }, { status: 400 });
+  //   }
+  // }
+
+  const handleSignInWithLinkedIn = () => {
+    const linkedInSignInUrl = new URLSearchParams({
+      response_type: "code",
+      client_id: process.env.NEXT_PUBLIC_LINKED_IN_APP_ID!,
+      redirect_uri: process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI!,
+      scope: "openid profile email",
+    });
+
+    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${linkedInSignInUrl}`;
+  };
+
+  // Sign in with linked in
+  // import { NextResponse } from "next/server";
+
+  // export async function GET(req: Request) {
+  //   const { searchParams } = new URL(req.url);
+  //   const code = searchParams.get("code");
+  //   const error = searchParams.get("error");
+
+  //   if (error) {
+  //     return NextResponse.json({ error }, { status: 400 });
+  //   }
+
+  //   if (!code) {
+  //     return NextResponse.json({ error: "Missing code" }, { status: 400 });
+  //   }
+
+  //   // 1️⃣ Exchange code for access token
+  //   const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+  //     method: "POST",
+  //     headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //     body: new URLSearchParams({
+  //       grant_type: "authorization_code",
+  //       code,
+  //       redirect_uri: process.env.LINKEDIN_REDIRECT_URI!,
+  //       client_id: process.env.LINKEDIN_CLIENT_ID!,
+  //       client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
+  //     }),
+  //   });
+
+  //   const tokenData = await tokenRes.json();
+
+  //   if (!tokenData.access_token) {
+  //     return NextResponse.json(tokenData, { status: 400 });
+  //   }
+
+  //   const accessToken = tokenData.access_token;
+
+  //   // 2️⃣ Get user profile (name + sub)
+  //   const profileRes = await fetch("https://api.linkedin.com/v2/me", {
+  //     headers: {
+  //       Authorization: `Bearer ${accessToken}`,
+  //     },
+  //   });
+
+  //   const profile = await profileRes.json();
+
+  //   // 3️⃣ Get user email
+  //   const emailRes = await fetch(
+  //     "https://api.linkedin.com/v2/emailAddress?q=members&projection=(elements*(handle~))",
+  //     {
+  //       headers: {
+  //         Authorization: `Bearer ${accessToken}`,
+  //       },
+  //     }
+  //   );
+
+  //   const emailData = await emailRes.json();
+  //   const email =
+  //     emailData?.elements?.[0]?.["handle~"]?.emailAddress || null;
+
+  //   return NextResponse.json({
+  //     accessToken,
+  //     profile,
+  //     email,
+  //   });
+  // }
+
   return (
     <div className="w-full h-full min-h-screen flex">
       {/* Login Form */}
@@ -60,11 +257,13 @@ const Login = () => {
         <form className="w-full" onSubmit={loginSubmit(handleLogin)}>
           {/* Login with */}
           <ul className="flex flex-col gap-3">
+            {/* Google */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
                         hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={handleGoogleLogin}
               >
                 <Image
                   src={googleLogo}
@@ -77,11 +276,13 @@ const Login = () => {
               </button>
             </li>
 
+            {/* Facebook */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
                         hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={loginWithFacebook}
               >
                 <Image
                   src={facebookLogo}
@@ -94,11 +295,13 @@ const Login = () => {
               </button>
             </li>
 
+            {/* Linked in */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
                         hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={handleSignInWithLinkedIn}
               >
                 <FaLinkedin className="w-[18px] h-[18px] text-[#2e78b6]" />
                 <span className="font-semibold text-lg">

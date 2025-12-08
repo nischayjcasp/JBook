@@ -4,7 +4,7 @@ import jbookLogo from "@/app/favicon.ico";
 
 const MainLoader = () => {
   return (
-    <div className="w-screen h-screen z-999 bg-white flex justify-center items-center">
+    <div className="fixed inset-0 w-screen h-screen z-1500 bg-white flex justify-center items-center">
       <div className="flex flex-col items-center gap-4">
         {/* JBook Logo */}
         <div className="flex items-end">

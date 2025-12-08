@@ -19,7 +19,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { signupSchema, SignupSchemaType } from "@/lib/schemas/auth.schema";
+import { signupSchema, SignupSchemaType } from "@/src/lib/schemas/auth.schema";
 import { authProps } from "./LoginForm";
 
 const SignUpForm = ({ auth }: { auth: authProps }) => {

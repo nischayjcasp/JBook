@@ -15,32 +15,40 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { loginSchema, LoginSchemaType } from "@/lib/schemas/auth.schema";
+import {
+  forgotPassSchema,
+  ForgotPassSchemaType,
+  loginSchema,
+  LoginSchemaType,
+} from "@/src/lib/schemas/auth.schema";
 import { useRouter } from "next/navigation";
 
 const ForgetPassword = () => {
   const navigate = useRouter();
-  const [loginPassEye, setLoginPassEye] = useState<boolean>(false);
+  const [isResetLinkSent, setIsResetLinkSent] = useState<boolean>(false);
 
-  // Login Form
+  // Forgot password Form
   const {
-    handleSubmit: loginSubmit,
-    control: loginControl,
-    setValue: loginSetValue,
-    getValues: loginGetValues,
-    clearErrors: loginClearErrors,
-    reset: loginReset,
-    formState: { errors: loginErrors },
-  } = useForm<LoginSchemaType>({
-    resolver: yupResolver(loginSchema),
-    defaultValues: {
-      login_email: "",
-      login_password: "",
-    },
+    handleSubmit: forogtPassSubmit,
+    control: forogtPassControl,
+    reset: forogtPassReset,
+    setError: forogtPassSetError,
+    formState: { errors: forogtPassErrors },
+  } = useForm<ForgotPassSchemaType>({
+    resolver: yupResolver(forgotPassSchema),
   });
 
-  const handleLogin = (data: LoginSchemaType) => {
-    console.log(data);
+  const handleForogtPass = (data: ForgotPassSchemaType) => {
+    console.log("Data: ", data);
+    if (data.forgot_pass_email !== "ram@gmail.com") {
+      forogtPassSetError("forgot_pass_email", {
+        type: "custom",
+        message: "User do not exist",
+      });
+    } else {
+      setIsResetLinkSent(true);
+      // Link on email: https://app.todoist.com/auth/password?reset_code=56364218_AKbxdAKUKSkWnlporNys7wD6
+    }
   };
 
   return (
@@ -58,43 +66,56 @@ const ForgetPassword = () => {
             Forgot your password?
           </p>
 
-          <form className="w-full" onSubmit={loginSubmit(handleLogin)}>
+          <form
+            className="w-full"
+            onSubmit={forogtPassSubmit(handleForogtPass)}
+          >
             <p className="text-sm mb-4">
-              To reset your password, please enter the email address of your
-              Todoist account.
+              {!isResetLinkSent
+                ? `To reset your password, please enter the email address of your
+              Todoist account.`
+                : "You've been emailed a password reset link."}
             </p>
 
-            {/* Email */}
-            <div className="mb-2">
-              <Controller
-                name="login_email"
-                control={loginControl}
-                render={({ field: { value, onChange, name } }) => (
-                  <TextField
-                    label="Email"
-                    placeholder="Enter email "
-                    name={name}
-                    value={value}
-                    onChange={onChange}
-                    variant="outlined"
-                    className="w-full"
-                    error={loginErrors.login_email?.message ? true : false}
-                    helperText={
-                      loginErrors.login_email?.message
-                        ? `${loginErrors.login_email.message}`
-                        : " "
-                    }
+            {!isResetLinkSent && (
+              <>
+                {/* Email */}
+                <div className="mb-2">
+                  <Controller
+                    name="forgot_pass_email"
+                    control={forogtPassControl}
+                    render={({ field: { value, onChange, name } }) => (
+                      <TextField
+                        label="Email"
+                        placeholder="Enter email "
+                        name={name}
+                        value={value}
+                        onChange={onChange}
+                        variant="outlined"
+                        className="w-full"
+                        error={
+                          forogtPassErrors.forgot_pass_email?.message
+                            ? true
+                            : false
+                        }
+                        helperText={
+                          forogtPassErrors.forgot_pass_email?.message
+                            ? `${forogtPassErrors.forgot_pass_email.message}`
+                            : " "
+                        }
+                      />
+                    )}
                   />
-                )}
-              />
-            </div>
+                </div>
 
-            <button
-              type="submit"
-              className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg"
-            >
-              Reset my password
-            </button>
+                <button
+                  type="submit"
+                  className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg"
+                >
+                  Reset my password
+                </button>
+              </>
+            )}
 
             <hr className="mt-10 mb-4 w-full h-px border-none bg-slate-200" />
 
@@ -103,7 +124,7 @@ const ForgetPassword = () => {
                 type="button"
                 className="font-medium underline text-primary cursor-pointer"
                 onClick={() => {
-                  loginClearErrors();
+                  forogtPassReset();
                   navigate.push("/");
                 }}
               >

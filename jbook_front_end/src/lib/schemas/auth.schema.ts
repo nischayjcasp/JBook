@@ -1,5 +1,5 @@
 import * as yup from "yup";
-
+//Login form schema
 export const loginSchema = yup.object({
   login_email: yup
     .string()
@@ -18,6 +18,7 @@ export const loginSchema = yup.object({
     ),
 });
 
+//Sign up form schema
 export type LoginSchemaType = yup.InferType<typeof loginSchema>;
 
 export const signupSchema = yup.object({
@@ -59,7 +60,39 @@ export const signupSchema = yup.object({
   signup_cpassword: yup
     .string()
     .required("Confirm Password is required")
-    .oneOf([yup.ref("signup_password")], "Passwords must match"),
+    .oneOf([yup.ref("signup_password")], "Passwords do not match"),
 });
 
 export type SignupSchemaType = yup.InferType<typeof signupSchema>;
+
+// Forgot pass schema
+export const forgotPassSchema = yup.object({
+  forgot_pass_email: yup
+    .string()
+    .email("Invalid email")
+    .required("Email is required"),
+});
+
+export type ForgotPassSchemaType = yup.InferType<typeof forgotPassSchema>;
+
+// Reser password schema
+
+export const resetPassSchema = yup.object({
+  reset_password: yup
+    .string()
+    .min(6, "Minimum 6 characters")
+    .required("Password is required")
+    .matches(/\d/, "Password must have one digit")
+    .matches(/[A-Z]/, "Password must have one capital letter")
+    .matches(/[a-z]/, "Password must have one lowercase letter")
+    .matches(
+      /^(?=.*[~`!@#$%^&*()_\-+=\[\]{};:'"\\|,.<>/?]).+$/,
+      "Password must have one special character"
+    ),
+  reset_cpassword: yup
+    .string()
+    .required("Confirm Password is required")
+    .oneOf([yup.ref("reset_password")], "Passwords do not match"),
+});
+
+export type ResetPassSchemaType = yup.InferType<typeof resetPassSchema>;

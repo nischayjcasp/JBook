@@ -1,11 +1,16 @@
+"use client";
 import type { Metadata } from "next";
 import "./globals.css";
 import { Slide, ToastContainer } from "react-toastify";
+import Script from "next/script";
+import { Provider } from "react-redux";
+import { ReduxStore } from "@/src/lib/store";
+import MainLoaderWrapper from "@/src/components/loaders/MainLoaderWrapper";
 
-export const metadata: Metadata = {
-  title: "JBook | Jcasp Technologies",
-  description: "JBook a Task management App",
-};
+// export const metadata: Metadata = {
+//   title: "JBook | Jcasp Technologies",
+//   description: "JBook a Task management App",
+// };
 
 export default function RootLayout({
   children,
@@ -15,6 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="">
+        {/* React Toast */}
         <ToastContainer
           position="top-center"
           autoClose={5000}
@@ -28,7 +34,31 @@ export default function RootLayout({
           theme="light"
           transition={Slide}
         />
-        {children}
+
+        {/* Load Google Identity Services */}
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+        />
+
+        {/* Facebook login script */}
+        <Script
+          src="https://connect.facebook.net/en_US/sdk.js"
+          strategy="afterInteractive"
+          onLoad={() => {
+            window.FB.init({
+              appId: process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
+              cookie: true,
+              xfbml: false,
+              version: "v21.0",
+            });
+          }}
+        />
+
+        {/* Redux provider */}
+        <Provider store={ReduxStore}>
+          <MainLoaderWrapper>{children}</MainLoaderWrapper>
+        </Provider>
       </body>
     </html>
   );

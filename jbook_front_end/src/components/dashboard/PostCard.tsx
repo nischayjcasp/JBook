@@ -8,7 +8,7 @@ import Link from "next/link";
 import { toast } from "react-toastify";
 
 interface PostCardProps {
-  openEditDialog: () => void;
+  openEditDialog?: () => void;
 }
 
 const PostCard = ({ openEditDialog }: PostCardProps) => {
@@ -35,7 +35,7 @@ const PostCard = ({ openEditDialog }: PostCardProps) => {
             className="p-2 cursor-pointer text-primary rounded-sm flex items-center gap-1"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
               event.preventDefault();
-              openEditDialog();
+              if (openEditDialog) openEditDialog();
             }}
           >
             <FaEdit className="text-lg" />

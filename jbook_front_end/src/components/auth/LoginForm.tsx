@@ -13,7 +13,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { loginSchema, LoginSchemaType } from "@/lib/schemas/auth.schema";
+import { loginSchema, LoginSchemaType } from "@/src/lib/schemas/auth.schema";
 
 export interface authProps {
   authState: "login" | "signup";

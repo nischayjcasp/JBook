@@ -3,6 +3,7 @@
 import {
   Avatar,
   Checkbox,
+  CircularProgress,
   Dialog,
   FormControlLabel,
   FormGroup,
@@ -18,7 +19,6 @@ import MenuItem from "@mui/material/MenuItem";
 import { useEffect, useState } from "react";
 import {
   IoArrowBack,
-  IoSearch,
   IoSettingsOutline,
   IoShieldCheckmarkSharp,
 } from "react-icons/io5";
@@ -26,19 +26,33 @@ import { MdLogout } from "react-icons/md";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import { styled } from "@mui/material/styles";
-import { DatePicker, LocalizationProvider } from "@mui/x-date-pickers";
+import {
+  DatePicker,
+  DateTimePicker,
+  LocalizationProvider,
+  renderTimeViewClock,
+} from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import dayjs from "dayjs";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
-import { RiErrorWarningFill } from "react-icons/ri";
 import { IoIosArrowDown, IoMdClose } from "react-icons/io";
 import { BsLayoutSidebar } from "react-icons/bs";
 import { ReactNode } from "react";
 import { FaCirclePlus } from "react-icons/fa6";
-import defaultImage from "@/app/assets/images/sampleImage.webp";
+import defaultImage from "@/app/assets/images/default-placeholder.jpg";
 import Image from "next/image";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { userProfileSchema } from "@/lib/schemas/settings.schema";
+import {
+  addPostSchema,
+  deleteAccSchema,
+  passChangeSchema,
+  PassChangeSchemaType,
+  userPhotoSupportedFormats,
+  userProfileSchema,
+} from "@/src/lib/schemas/settings.schema";
+import { toast } from "react-toastify";
+import { GoDotFill } from "react-icons/go";
+import { useRouter } from "next/navigation";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -53,6 +67,8 @@ export const VisuallyHiddenInput = styled("input")({
 });
 
 const UserLayout = ({ children }: { children: ReactNode }) => {
+  const router = useRouter();
+  const [isLoading, setLoading] = useState<boolean>(false);
   const [sideBar, setSideBar] = useState<boolean>(true);
   const [userAccAnchor, setUserAccAnchor] = useState<null | HTMLElement>(null);
   const [settingDialog, setSettingDialog] = useState<boolean>(false);
@@ -63,22 +79,26 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [accountPassEye, setAccountPassEye] = useState<boolean>(false);
   const UserAcc = Boolean(userAccAnchor);
   const [accounts, setAccounts] = useState([
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+    "alex.morton92@gmail.com",
+    "sophia_turner87@yahoo.com",
+    "daniel.ross314@outlook.com",
+    "megha.kumar21@gmail.com",
+    "ethan.wells49@proton.me",
+    "kavya.sharma.dev@icloud.com",
+    "liam.hudson.tech@outlook.com",
+    "nora.jensen24@gmail.com",
+    "priya.verma.codes@yahoo.com",
+    "michael.brooks118@proton.me",
   ]);
+  const [filteredAccounts, setFilteredAccounts] = useState(accounts);
   const [changeCurrentPassEye, setChangeCurrentPassEye] =
     useState<boolean>(false);
   const [changeNewPassEye, setChangeNewPassEye] = useState<boolean>(false);
   const [changeCNewPassEye, setChangeCNewPassEye] = useState<boolean>(false);
   const [deleteAccPassEye, setDeleteAccPassEye] = useState<boolean>(false);
-  const [userPic, setUerPic] = useState(null);
-
-  const openSettingDialog = () => {
-    setSettingDialog(true);
-  };
-
-  const closeSettingDialog = () => {
-    setSettingDialog(false);
-  };
+  const [userPic, setUserPic] = useState<string | null>(null);
+  const [PostPhoto, setPostPhoto] = useState<string | null>(null);
+  const [selectedMergeAcc, setSelectedMergeAcc] = useState<string[]>([]);
 
   const openUserAccMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     setUserAccAnchor(event.currentTarget);
@@ -89,22 +109,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
   const handleSettingTabs = (event: React.SyntheticEvent, newValue: number) => {
     setSettingActiveTab(newValue);
-  };
-
-  const openAddDialog = () => {
-    setAddDialog(true);
-  };
-
-  const closeAddDialog = () => {
-    setAddDialog(false);
-  };
-
-  const openChangePassDialog = () => {
-    setChangePassDialog(true);
-  };
-
-  const closeChangePassDialog = () => {
-    setChangePassDialog(false);
   };
 
   // Search form
@@ -120,7 +124,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     watch: accountFormWatch,
     setValue: accountSetValue,
     getValues: accountGetValues,
-    clearErrors: accountClearErrors,
     reset: accountReset,
     formState: { errors: accountErrors },
   } = useForm({
@@ -135,36 +138,96 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     console.log("userPhoto", userPhoto);
+    if (userPhoto && userPhotoSupportedFormats.includes(userPhoto.type)) {
+      const photoUrl = URL.createObjectURL(userPhoto);
+      console.log("photoUrl", photoUrl);
+      setUserPic(photoUrl);
+    } else setUserPic(null);
   }, [userPhoto]);
 
   //Add post form
   const {
     control: addPostControl,
     handleSubmit: addPostSubmit,
+    watch: postWatch,
+    reset: addPostReset,
     formState: { errors: addPostErrors },
-  } = useForm();
+  } = useForm({
+    resolver: yupResolver(addPostSchema),
+    defaultValues: {
+      post_date: new Date("2025-12-04"),
+      post_text: "SitaRAM",
+    },
+  });
 
-  const onAddPost = (data: any) => {
+  const postPhoto: any = postWatch("post_photo");
+
+  useEffect(() => {
+    console.log("post_photo", userPhoto);
+    if (postPhoto && userPhotoSupportedFormats.includes(postPhoto.type)) {
+      const photoUrl = URL.createObjectURL(postPhoto);
+      console.log("photoUrl", photoUrl);
+      setPostPhoto(photoUrl);
+    } else setPostPhoto(null);
+  }, [postPhoto]);
+
+  const openAddDialog = () => {
+    setAddDialog(true);
+  };
+
+  const closeAddDialog = () => {
+    if (!isLoading) {
+      setAddDialog(false);
+      addPostReset();
+    }
+  };
+
+  const onAddPost = async (data: any) => {
     console.log(data);
+    setLoading(true);
+    await new Promise((resolve) => {
+      setTimeout(() => {
+        setLoading(false);
+        toast.success("Post added successfully.");
+        closeAddDialog();
+        resolve("done");
+      }, 5000);
+    });
   };
 
   //Change password form
   const {
     control: changePassControl,
     handleSubmit: changePassSubmit,
+    reset: changePassReset,
     formState: { errors: changePassErrors },
-  } = useForm();
+  } = useForm<PassChangeSchemaType>({
+    resolver: yupResolver(passChangeSchema),
+  });
 
   const onPassChange = (data: any) => {
     console.log(data);
+  };
+
+  const openChangePassDialog = () => {
+    setChangePassDialog(true);
+    changePassReset();
+  };
+
+  const closeChangePassDialog = () => {
+    setChangePassDialog(false);
+    changePassReset();
   };
 
   //Delete account form
   const {
     control: delAccControl,
     handleSubmit: delAccSubmit,
+    reset: delAccReset,
     formState: { errors: delAccErrors },
-  } = useForm();
+  } = useForm({
+    resolver: yupResolver(deleteAccSchema),
+  });
 
   const onDeleteAcc = (data: any) => {
     console.log(data);
@@ -176,6 +239,53 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
   const closeDelAccDialog = () => {
     setDelAccDialog(false);
+    delAccReset();
+  };
+
+  const openSettingDialog = () => {
+    setSettingDialog(true);
+  };
+
+  const closeSettingDialog = () => {
+    setSettingDialog(false);
+    accountReset();
+    setSettingActiveTab(0);
+  };
+
+  useEffect(() => {
+    closeChangePassDialog();
+    closeDelAccDialog();
+  }, [settingActiveTab]);
+
+  // Merge Account search
+  const handleAccSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log(event.target.value);
+    let filteredAcc = accounts.filter((emailId) =>
+      emailId.includes(event.target.value)
+    );
+    console.log(filteredAcc);
+    setFilteredAccounts([...filteredAcc]);
+  };
+
+  const handleCheckAcc = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      const index = selectedMergeAcc.indexOf(event.target.value);
+      if (index == -1)
+        setSelectedMergeAcc([...selectedMergeAcc, event.target.value]);
+    } else {
+      let temp = [...selectedMergeAcc];
+      const index = temp.indexOf(event.target.value);
+      if (index !== -1) {
+        temp.splice(index, 1);
+        setSelectedMergeAcc([...temp]);
+      }
+    }
+  };
+
+  const onMergeStart = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    console.log("Selected Accounts: ", selectedMergeAcc);
+    router.push("/merger");
   };
 
   return (
@@ -279,7 +389,26 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
             },
           }}
         >
-          <div className="max-h-[calc(100vh-64px)] overflow-y-auto hideScrollBar">
+          <div
+            className={`relative max-h-[calc(100vh-64px)] ${
+              isLoading ? "overflow-hidden" : "overflow-y-auto"
+            } hideScrollBar`}
+          >
+            {/* Loader */}
+            {isLoading && (
+              <div className="sticky inset-0 min-h-[calc(100vh-64px)] h-full w-full z-1500 bg-black/40 flex items-center justify-center">
+                <CircularProgress
+                  size="34px"
+                  sx={{
+                    "&.MuiCircularProgress-root": {
+                      color: "#e1533c",
+                    },
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Header */}
             <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
               <p>Add Post</p>
               <button
@@ -291,6 +420,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
               </button>
             </div>
 
+            {/* Add Form */}
             <form className="w-full p-4" onSubmit={addPostSubmit(onAddPost)}>
               {/* Post date */}
               <div className="mb-2">
@@ -299,11 +429,16 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   control={addPostControl}
                   render={({ field: { value, onChange, name } }) => (
                     <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DatePicker
+                      <DateTimePicker
                         name={name}
                         label="Birthdate"
-                        format="DD-MM-YYYY"
-                        value={value ? dayjs(value) : dayjs("dd-mm-yyyy")}
+                        format="DD-MM-YYYY HH:MM A"
+                        value={value ? dayjs(value) : dayjs("")}
+                        viewRenderers={{
+                          hours: renderTimeViewClock,
+                          minutes: renderTimeViewClock,
+                          seconds: renderTimeViewClock,
+                        }}
                         onChange={onChange}
                         slotProps={{
                           textField: {
@@ -350,26 +485,53 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
               </div>
 
               {/* Photo */}
-              <div className="mb-7">
-                <p className="font-semibold mb-2">Photo</p>
-                <div className="flex justify-between items-start gap-10">
-                  <div>
-                    <div className="flex gap-2">
-                      <label>
-                        <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer">
-                          Choose photo
-                        </p>
-                        <VisuallyHiddenInput
-                          type="file"
-                          onChange={(event) => console.log(event.target.files)}
-                        />
-                      </label>
-                    </div>
-                    {/* <p className="text-red-500 text-sm px-3 py-1">Error</p> */}
+              <div className="flex flex-col gap-2 mb-7">
+                <div className="flex flex-col">
+                  <div className="flex  items-center gap-5 mb-2">
+                    <p className="font-semibold">Photo</p>
+                    <Controller
+                      name="post_photo"
+                      control={addPostControl}
+                      render={({ field: { name, value, onChange } }) => (
+                        <label>
+                          <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white text-nowrap font-semibold cursor-pointer">
+                            Choose photo
+                          </p>
+                          <VisuallyHiddenInput
+                            type="file"
+                            name={name}
+                            onChange={(event) => {
+                              if (event.target.files)
+                                onChange(event.target.files[0]);
+                            }}
+                          />
+                        </label>
+                      )}
+                    />
+                    <p className="max-w-full overflow-x-hidden text-black/70 text-xs">
+                      {postPhoto && postPhoto?.name}
+                    </p>
                   </div>
-                  <div className="flex-1">
-                    <Image src={defaultImage} alt="Post image" className="" />
-                  </div>
+
+                  <p className="min-h-6 text-red-500 text-xs">
+                    {addPostErrors.post_photo
+                      ? addPostErrors.post_photo?.message
+                      : " "}
+                  </p>
+                </div>
+
+                <div className="flex-1 mx-auto border border-slate-300 rounded-lg">
+                  <Image
+                    src={
+                      !accountErrors.user_photo?.message && PostPhoto
+                        ? PostPhoto
+                        : defaultImage
+                    }
+                    alt="Post image"
+                    width={500}
+                    height={300}
+                    className="h-auto max-h-[300px] rounded-lg"
+                  />
                 </div>
               </div>
 
@@ -378,7 +540,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   type="submit"
                   className="px-3 py-2 rounded-md bg-primary text-white font-semibold cursor-pointer"
                 >
-                  Add Post
+                  {isLoading ? "Adding..." : "Add Post"}
                 </button>
               </div>
             </form>
@@ -386,6 +548,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
         </Dialog>
       </div>
 
+      {/* Main content : post grid + pagination */}
       <div className="flex-1 relative overflow-hidden">
         <button
           type="button"
@@ -476,12 +639,16 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                       <div>
                         <Avatar
                           alt="Remy Sharp"
-                          src={"/userDefaultPic.jpg"}
+                          src={
+                            !accountErrors.user_photo?.message && userPic
+                              ? userPic
+                              : "/userDefaultPic.jpg"
+                          }
                           sx={{ width: "90px", height: "90px" }}
                         />
                       </div>
                       <div className="flex-1">
-                        <div className="flex gap-2 mb-4">
+                        <div className="mb-4">
                           <Controller
                             name="user_photo"
                             control={accountControl}
@@ -494,31 +661,20 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                                   type="file"
                                   name={name}
                                   onChange={(event) => {
-                                    if (event.target.files) {
-                                      accountSetValue(
-                                        "user_photo",
-                                        event.target.files
-                                      );
-                                    }
+                                    if (event.target.files)
+                                      onChange(event.target.files[0]);
                                   }}
                                 />
                               </label>
                             )}
                           />
-
-                          <button
-                            type="button"
-                            className="px-2.5 py-1.5 text-sm rounded-md bg-red-600 text-white font-semibold cursor-pointer"
-                          >
-                            Remove photo
-                          </button>
                         </div>
 
                         <div>
-                          <p className="max-w-full overflow-x-hidden min-h-6 text-black/70 text-xs px-3">
-                            {userPhoto && userPhoto[0].name}
+                          <p className="max-w-full overflow-x-hidden min-h-6 text-black/70 text-xs">
+                            {userPhoto && userPhoto?.name}
                           </p>
-                          <p className="min-h-6  text-red-500 text-xs px-3">
+                          <p className="min-h-6  text-red-500 text-xs">
                             {accountErrors.user_photo
                               ? accountErrors.user_photo?.message
                               : " "}
@@ -538,6 +694,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                           label="Username"
                           disabled
                           name={name}
+                          size="small"
                           value={value ?? "Abc"}
                           variant="outlined"
                           className="w-[400px]"
@@ -561,6 +718,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                           label="Display Name"
                           name={name}
                           value={value}
+                          size="small"
                           onChange={onChange}
                           variant="outlined"
                           className="w-[400px]"
@@ -662,6 +820,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                           label="Email"
                           placeholder="Enter email "
                           name={name}
+                          size="small"
                           value={"user@g.com"}
                           disabled
                           onChange={onChange}
@@ -685,8 +844,9 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             type={accountPassEye ? "text" : "password"}
                             label="Password"
                             placeholder="Enter password "
+                            size="small"
                             name={name}
-                            value={value}
+                            value={value ?? "*****"}
                             disabled
                             onChange={onChange}
                             variant="outlined"
@@ -736,10 +896,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                     <button
                       type="button"
                       className="py-2 px-3 bg-slate-200 hover:bg-slate-200 cursor-pointer  font-semibold text-sm rounded-md"
-                      onClick={() => {
-                        closeSettingDialog();
-                        accountClearErrors();
-                      }}
+                      onClick={closeSettingDialog}
                     >
                       Cancel
                     </button>
@@ -752,147 +909,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                     </button>
                   </div>
                 </form>
-              </div>
-            )}
-
-            {/* Merge */}
-            {settingActiveTab === 1 && (
-              <div className="">
-                <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
-                  <p>Merge</p>
-                  <button
-                    type="button"
-                    onClick={closeSettingDialog}
-                    className="cursor-pointer"
-                  >
-                    <IoMdClose className="text-2xl text-red-500" />
-                  </button>
-                </div>
-
-                <div className="p-4">
-                  {/* Connected acc. */}
-                  <div className="mb-5">
-                    <p className="font-semibold">Connected Account</p>
-                    <div className="ms-3">
-                      <RadioGroup
-                        defaultValue={"abc1@g.com"}
-                        sx={{
-                          "& .Mui-checked": {
-                            color: "#e1533c",
-                          },
-                        }}
-                      >
-                        <table className="max-w-[500px]">
-                          <tbody>
-                            <tr>
-                              <td>
-                                <FormControlLabel
-                                  value="abc1@g.com"
-                                  control={<Radio disabled />}
-                                  label="abc1@g.com"
-                                />
-                              </td>
-                              <td>
-                                <div>
-                                  <button
-                                    type="button"
-                                    className="w-[100px] flex items-center gap-1 text-sm bg-green-600 text-white px-2 py-1 rounded-sm cursor-pointer"
-                                  >
-                                    <IoShieldCheckmarkSharp className="text-lg" />
-                                    <span>Verified</span>
-                                  </button>
-                                </div>
-                              </td>
-                              <td>
-                                <p className="text-xs text-blue-700">Primary</p>
-                              </td>
-                            </tr>
-
-                            <tr>
-                              <td>
-                                <FormControlLabel
-                                  value="abc2@g.com"
-                                  control={<Radio disabled />}
-                                  label="abc2@g.com"
-                                />
-                              </td>
-                              <td>
-                                <div>
-                                  <button
-                                    type="button"
-                                    className="w-[100px] flex items-center gap-1 text-sm bg-red-700 text-white px-2 py-1 rounded-sm cursor-pointer"
-                                  >
-                                    <RiErrorWarningFill className="text-lg" />
-                                    <span>Verify</span>
-                                  </button>
-                                </div>
-                              </td>
-                              <td>
-                                <p className="text-xs text-slate-600">
-                                  Secondary
-                                </p>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </RadioGroup>
-                    </div>
-                  </div>
-
-                  {/* Add account */}
-                  <div>
-                    <p className="font-semibold mb-5">
-                      Want to add/merge account?
-                    </p>
-
-                    <div className="max-w-[500px]">
-                      {/*Account Search bar */}
-                      <form
-                        // onSubmit={handleSubmit(onSearch)}
-                        className="w-full relative mb-4"
-                      >
-                        <input
-                          type="text"
-                          name="account_search"
-                          className="w-full px-3 py-1.5 border rounded-sm"
-                          placeholder="Search here.."
-                        />
-                        <button
-                          type="submit"
-                          className="absolute top-1/2 -translate-y-1/2 right-0 p-2 cursor-pointer"
-                        >
-                          <FaSearch className="text-xl" />
-                        </button>
-                      </form>
-
-                      <div className="max-h-[250px] overflow-y-auto mb-5">
-                        <FormGroup>
-                          <ul className="ms-4">
-                            {/* Accounts list */}
-                            {accounts &&
-                              accounts.map((acc, inx) => (
-                                <li key={`user-acc-${inx}`}>
-                                  <FormControlLabel
-                                    control={<Checkbox />}
-                                    label={`abc${acc}@g.com`}
-                                  />
-                                </li>
-                              ))}
-                          </ul>
-                        </FormGroup>
-                      </div>
-
-                      <div className="text-center">
-                        <button
-                          type="button"
-                          className="px-3 py-2 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
-                        >
-                          Merge All
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -913,7 +929,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   </div>
                   <button
                     type="button"
-                    onClick={closeSettingDialog}
+                    onClick={closeChangePassDialog}
                     className="cursor-pointer"
                   >
                     <IoMdClose className="text-2xl text-red-500 z-1000" />
@@ -921,7 +937,10 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                 </div>
 
                 {/* Content */}
-                <form className="flex-1 p-4 flex flex-col justify-between">
+                <form
+                  className="flex-1 p-4 flex flex-col justify-between"
+                  onSubmit={changePassSubmit(onPassChange)}
+                >
                   {/* Inputs */}
                   <div>
                     {/* Current Password */}
@@ -1039,7 +1058,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                           <TextField
                             size="small"
                             type={changeCNewPassEye ? "text" : "password"}
-                            label="Password"
+                            label="Confirm Password"
                             placeholder="Enter password "
                             name={name}
                             value={value}
@@ -1088,7 +1107,10 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                     <button
                       type="button"
                       className="py-2 px-3 bg-slate-200 hover:bg-slate-200 cursor-pointer  font-semibold text-sm rounded-md"
-                      onClick={closeChangePassDialog}
+                      onClick={() => {
+                        closeChangePassDialog();
+                        changePassReset();
+                      }}
                     >
                       Cancel
                     </button>
@@ -1106,9 +1128,9 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
             {/* Delete Account dialog */}
             {delAccDialog && (
-              <div className="z-990 sticky inset-0 w-full h-full bg-white flex flex-col">
+              <div className="z-990 sticky inset-0 w-full h-full bg-white flex flex-col overflow-y-auto hideScrollBar">
                 {/* Header */}
-                <div className="p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
+                <div className="z-991 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -1145,10 +1167,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                       <button
                         type="button"
                         className="underline text-primary cursor-pointer"
-                        onClick={() => {
-                          setSettingActiveTab(0);
-                          closeDelAccDialog();
-                        }}
+                        onClick={closeDelAccDialog}
                       >
                         Account settings
                       </button>
@@ -1217,7 +1236,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                     <div className="mb-2">
                       <Controller
                         name="del_acc_password"
-                        control={changePassControl}
+                        control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
                             type={deleteAccPassEye ? "text" : "password"}
@@ -1273,7 +1292,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                         name="acc_delete_user_consent"
                         control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
-                          <div className="flex items-center">
+                          <label className="flex items-center">
                             <Checkbox
                               name={name}
                               checked={value}
@@ -1283,11 +1302,13 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                               I understand that delete accounts aren't
                               recoverable
                             </p>
-                          </div>
+                          </label>
                         )}
                       />
-                      <p className="text-sm px-3 opacity-0 text-red-600">
-                        User consent is required
+                      <p className="min-h-5 text-xs px-4 text-[#d32f2f]">
+                        {delAccErrors.acc_delete_user_consent
+                          ? delAccErrors.acc_delete_user_consent?.message
+                          : " "}
                       </p>
                     </div>
 
@@ -1309,6 +1330,132 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                     </div>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* Merge */}
+            {settingActiveTab === 1 && (
+              <div className="">
+                <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
+                  <p>Merge</p>
+                  <button
+                    type="button"
+                    onClick={closeSettingDialog}
+                    className="cursor-pointer"
+                  >
+                    <IoMdClose className="text-2xl text-red-500" />
+                  </button>
+                </div>
+
+                <div className="p-4">
+                  {/* Connected acc. */}
+                  <div className="mb-5">
+                    <p className="font-semibold">Connected Account</p>
+                    <div className="ms-3">
+                      <table className="w-full">
+                        <tbody>
+                          {[1, 2, 3].map((acc, inx) => (
+                            <tr key={`Connected-Acc-${inx}`}>
+                              {/* Email */}
+                              <td className="p-1.5 w-3/5">
+                                <div className="flex items-center gap-3">
+                                  <GoDotFill className="text-sm" />
+                                  <p className="leading-none">
+                                    abc{inx + 1}@g.com
+                                  </p>
+                                </div>
+                              </td>
+                              {/* Verified badge */}
+                              <td className="p-1.5 w-1/5">
+                                <p className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600 text-white px-1.5 py-1 rounded-sm">
+                                  <IoShieldCheckmarkSharp className="text-lg" />
+                                  <span>Verified</span>
+                                </p>
+                              </td>
+                              {/* Primary/Secondary */}
+                              <td className="p-1.5 w-1/5">
+                                {inx == 0 ? (
+                                  <p className="text-xs text-blue-700">
+                                    Primary
+                                  </p>
+                                ) : (
+                                  <p className="text-xs text-slate-500">
+                                    Secondary
+                                  </p>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Add account */}
+                  <div>
+                    <p className="font-semibold mb-5">
+                      Want to add/merge account?
+                    </p>
+
+                    <div className="max-w-[500px]">
+                      {/*Account Search bar */}
+                      <div className="w-full relative mb-4">
+                        <input
+                          type="text"
+                          name="account_search"
+                          className="w-full px-3 py-1.5 border rounded-sm"
+                          placeholder="Search here.."
+                          onChange={handleAccSearch}
+                        />
+                        <button
+                          type="submit"
+                          className="absolute top-1/2 -translate-y-1/2 right-0 p-2 cursor-pointer"
+                        >
+                          <FaSearch className="text-xl" />
+                        </button>
+                      </div>
+
+                      <form onSubmit={onMergeStart}>
+                        <div className="max-h-[250px] overflow-y-auto mb-5">
+                          <FormGroup>
+                            <ul className="ms-4">
+                              {/* Accounts list */}
+                              {filteredAccounts &&
+                                filteredAccounts.map((acc, inx) => (
+                                  <li key={`user-acc-${inx}`}>
+                                    <FormControlLabel
+                                      control={
+                                        <Checkbox
+                                          value={acc}
+                                          onChange={handleCheckAcc}
+                                        />
+                                      }
+                                      label={acc}
+                                    />
+                                  </li>
+                                ))}
+                            </ul>
+                            {filteredAccounts &&
+                              filteredAccounts.length <= 0 && (
+                                <p className="text-red-500 font-semibold text-center p-4">
+                                  No account found
+                                </p>
+                              )}
+                          </FormGroup>
+                        </div>
+
+                        <div className="text-center">
+                          <button
+                            type="submit"
+                            className="px-3 py-2 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
+                          >
+                            Merge All
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
