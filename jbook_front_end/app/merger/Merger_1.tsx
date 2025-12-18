@@ -1,5 +1,5 @@
 import EmailVerifyTimer from "@/src/components/merger/EmailVerifyTimer";
-import { AppDispatch, RootState } from "@/src/lib/store";
+import { AppDispatch, ReduxStore, RootState } from "@/src/redux/store";
 import {
   mergerNext,
   setPrimaryAccData,
@@ -21,7 +21,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
 export interface SelectedAccType {
-  emailId: string;
+  emailId: string | null;
   isVerified: boolean;
   startTimer: boolean;
   isExpired: boolean;
@@ -32,6 +32,14 @@ const Merger_1 = ({ active }: { active: boolean }) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const [instrucDialog, setInstrucDialog] = useState(false);
+
+  const PrimaryAccEmail = useSelector(
+    (state: RootState) => state.merger.primaryAcc.email
+  );
+  const SeconadaryAccEmail = useSelector(
+    (state: RootState) => state.merger.secondaryAcc.email
+  );
+
   const [selectedAcc, setSelectedAcc] = useState<SelectedAccType[]>([
     {
       emailId: "abc1@g.com",
@@ -55,12 +63,42 @@ const Merger_1 = ({ active }: { active: boolean }) => {
       isExpired: false,
     },
   ]);
-  const [primaryAcc, setPrimatyAcc] = useState<
-    SelectedAccType | undefined | null
-  >(null);
+
+  const [primaryAcc, setPrimaryAcc] = useState<SelectedAccType | null>(null);
+
+  const [secondaryAcc, setSecondaryAcc] = useState<SelectedAccType | null>(
+    null
+  );
+
+  useEffect(() => {
+    // const PrimaryAccEmail = ReduxStore.getState().merger.primaryAcc.email;
+    // const SecondaryAccEmail = ReduxStore.getState().merger.secondaryAcc.email;
+    console.log(PrimaryAccEmail, SeconadaryAccEmail);
+    // if (PrimaryAccEmail) {
+    //   setPrimaryAcc({
+    //     emailId: PrimaryAccEmail,
+    //     isVerified: true,
+    //     startTimer: false,
+    //     isPrimary: false,
+    //     isExpired: false,
+    //   });
+    // }
+
+    // if (SeconadaryAccEmail) {
+    //   setSecondaryAcc({
+    //     emailId: SeconadaryAccEmail,
+    //     isVerified: false,
+    //     startTimer: false,
+    //     isPrimary: false,
+    //     isExpired: false,
+    //   });
+    // }
+  }, []);
+
   const mergerActiveStep = useSelector(
     (state: RootState) => state.merger.mergerActiveStep
   );
+
   const [errors, setErrors] = useState<string>();
 
   const openInstrucDialog = () => {
@@ -70,10 +108,6 @@ const Merger_1 = ({ active }: { active: boolean }) => {
   const closeInstrucDialog = () => {
     setInstrucDialog(false);
   };
-
-  //   useEffect(() => {
-  //     openInstrucDialog();
-  //   }, []);
 
   const {
     control: userConsentControl,
@@ -111,7 +145,7 @@ const Merger_1 = ({ active }: { active: boolean }) => {
   //Handle primary account
   const handlePrimaryAcc = (indexNo: number) => {
     setErrors("");
-    setPrimatyAcc(selectedAcc[indexNo]);
+    setPrimaryAcc(selectedAcc[indexNo]);
     // console.log("Primary Acc:", event.target.value, event.target.checked);
     let temp = [...selectedAcc];
     temp.forEach((acc, inx) => {
@@ -128,15 +162,19 @@ const Merger_1 = ({ active }: { active: boolean }) => {
 
   const handleNextStep = () => {
     console.log("primaryAcc", primaryAcc);
+
     if (primaryAcc) {
+      // Check if user have selected any primary account
       let filteredAccounts = selectedAcc.filter(
         (acc) => acc.emailId != primaryAcc.emailId
       );
+
       dispatch(
         setPrimaryAccData({
           email: primaryAcc.emailId,
         })
       );
+
       dispatch(
         setSecondaryAccData([
           {
@@ -144,9 +182,24 @@ const Merger_1 = ({ active }: { active: boolean }) => {
           },
         ])
       );
-      dispatch(mergerNext());
+
+      // Check if all accounts are verified or not
+      // for (let i = 0; i < selectedAcc.length; i++) {
+      //   if (!selectedAcc[i].isVerified) {
+      //     setErrors(
+      //       `Please select verify the account: ${selectedAcc[i].emailId}`
+      //     );
+      //     return;
+      //   }
+      // }
+
+      if (!errors) {
+        console.log("errors: ", errors);
+        dispatch(mergerNext());
+      }
     } else {
       setErrors("Please select the primary account!");
+      return;
     }
   };
 
@@ -179,80 +232,151 @@ const Merger_1 = ({ active }: { active: boolean }) => {
           <RadioGroup name="primary_acccount">
             <table className="w-full max-h-[500px] overflow-y-auto">
               <tbody>
-                {selectedAcc &&
-                  selectedAcc.map((acc: SelectedAccType, inx: number) => (
-                    <tr key={`Selected-Acc-${inx}`}>
-                      {/* Email */}
-                      <td className="p-1.5 w-1/2">
-                        <div className="flex items-center gap-3">
-                          <FormControlLabel
-                            value={acc.emailId}
-                            control={
-                              <Radio
-                                value={acc.emailId}
-                                onChange={() => handlePrimaryAcc(inx)}
-                              />
-                            }
-                            label={acc.emailId}
-                          />
-                        </div>
-                      </td>
-
-                      {/* Verified badge */}
-                      <td className="p-1.5">
-                        <div>
-                          {acc.isVerified ? (
-                            <button
-                              type="button"
-                              className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600/90 hover:bg-green-600 text-white px-1.5 py-1 rounded-sm"
-                            >
-                              <IoShieldCheckmarkSharp className="text-lg" />
-                              <span>Verified</span>
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              disabled={selectedAcc[inx].startTimer}
-                              className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-primary/90 hover:bg-primary text-white px-1.5 py-1 rounded-sm cursor-pointer
-                              disabled:bg-slate-500 disabled:cursor-none"
-                              onClick={() => {
-                                sendEmailVerification(inx);
-                              }}
-                            >
-                              {selectedAcc[inx].isExpired ? (
-                                <p className="w-full text-center">Resend</p>
-                              ) : (
-                                <p className="w-full text-center">Verify</p>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Primary/Secondary */}
-                      <td className="p-1.5">
-                        {acc.isPrimary ? (
-                          <p className="text-center text-blue-700">Primary</p>
-                        ) : (
-                          <p className="text-center text-slate-500">
-                            Secondary
-                          </p>
-                        )}
-                      </td>
-
-                      {/* Timer */}
-                      <td className="min-w-[120px]">
-                        <div className="flex items-center gap-3">
-                          {/* Timer */}
-                          {acc.startTimer && (
-                            <EmailVerifyTimer
-                              props={{ inx, selectedAcc, setSelectedAcc }}
+                {/* Primary Account */}
+                {primaryAcc && (
+                  <tr>
+                    {/* Email */}
+                    <td className="p-1.5 w-1/2">
+                      <div className="flex items-center gap-3">
+                        <FormControlLabel
+                          value={primaryAcc.emailId}
+                          control={
+                            <Radio
+                              value={primaryAcc.emailId}
+                              // onChange={() => handlePrimaryAcc(inx)}
                             />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                          }
+                          label={primaryAcc.emailId}
+                        />
+                      </div>
+                    </td>
+
+                    {/* Verified badge */}
+                    <td className="p-1.5">
+                      <div>
+                        {primaryAcc.isVerified ? (
+                          <button
+                            type="button"
+                            className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600/90 hover:bg-green-600 text-white px-1.5 py-1 rounded-sm"
+                          >
+                            <IoShieldCheckmarkSharp className="text-lg" />
+                            <span>Verified</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={primaryAcc.startTimer}
+                            className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-primary/90 hover:bg-primary text-white px-1.5 py-1 rounded-sm cursor-pointer
+                              disabled:bg-slate-500 disabled:cursor-none"
+                            onClick={() => {
+                              // sendEmailVerification(inx);
+                            }}
+                          >
+                            {primaryAcc.isExpired ? (
+                              <p className="w-full text-center">Resend</p>
+                            ) : (
+                              <p className="w-full text-center">Verify</p>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Primary/Secondary */}
+                    <td className="p-1.5">
+                      {primaryAcc.isPrimary ? (
+                        <p className="text-center text-blue-700">Primary</p>
+                      ) : (
+                        <p className="text-center text-slate-500">Secondary</p>
+                      )}
+                    </td>
+
+                    {/* Timer */}
+                    <td className="min-w-[120px]">
+                      <div className="flex items-center gap-3">
+                        {/* Timer */}
+                        {primaryAcc.startTimer && (
+                          <EmailVerifyTimer
+                            props={{ inx, selectedAcc, setSelectedAcc }}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {/* Secondary Account */}
+                {secondaryAcc && (
+                  <tr>
+                    {/* Email */}
+                    <td className="p-1.5 w-1/2">
+                      <div className="flex items-center gap-3">
+                        <FormControlLabel
+                          value={secondaryAcc.emailId}
+                          control={
+                            <Radio
+                              value={secondaryAcc.emailId}
+                              // onChange={() => handlePrimaryAcc(inx)}
+                            />
+                          }
+                          label={secondaryAcc.emailId}
+                        />
+                      </div>
+                    </td>
+
+                    {/* Verified badge */}
+                    <td className="p-1.5">
+                      <div>
+                        {secondaryAcc.isVerified ? (
+                          <button
+                            type="button"
+                            className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600/90 hover:bg-green-600 text-white px-1.5 py-1 rounded-sm"
+                          >
+                            <IoShieldCheckmarkSharp className="text-lg" />
+                            <span>Verified</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={secondaryAcc.startTimer}
+                            className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-primary/90 hover:bg-primary text-white px-1.5 py-1 rounded-sm cursor-pointer
+                              disabled:bg-slate-500 disabled:cursor-none"
+                            onClick={() => {
+                              // sendEmailVerification(inx);
+                            }}
+                          >
+                            {secondaryAcc.isExpired ? (
+                              <p className="w-full text-center">Resend</p>
+                            ) : (
+                              <p className="w-full text-center">Verify</p>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </td>
+
+                    {/* Primary/Secondary */}
+                    <td className="p-1.5">
+                      {secondaryAcc.isPrimary ? (
+                        <p className="text-center text-blue-700">Primary</p>
+                      ) : (
+                        <p className="text-center text-slate-500">Secondary</p>
+                      )}
+                    </td>
+
+                    {/* Timer */}
+                    <td className="min-w-[120px]">
+                      <div className="flex items-center gap-3">
+                        {/* Timer */}
+                        {secondaryAcc.startTimer && (
+                          <EmailVerifyTimer
+                            props={{ inx, selectedAcc, setSelectedAcc }}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </RadioGroup>
@@ -265,7 +389,7 @@ const Merger_1 = ({ active }: { active: boolean }) => {
             className="min-w-[90px] py-1.5 bg-red-700 rounded-sm text-white font-medium cursor-pointer"
             onClick={handleBackAction}
           >
-            {mergerActiveStep == 1 ? "Cancel" : "Back"}
+            Cancel
           </button>
 
           <button

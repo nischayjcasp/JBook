@@ -1,11 +1,13 @@
 "use client";
+
 import type { Metadata } from "next";
 import "./globals.css";
 import { Slide, ToastContainer } from "react-toastify";
 import Script from "next/script";
-import { Provider } from "react-redux";
-import { ReduxStore } from "@/src/lib/store";
+import { Provider, useSelector } from "react-redux";
+import { ReduxStore, RootState } from "@/src/redux/store";
 import MainLoaderWrapper from "@/src/components/loaders/MainLoaderWrapper";
+import BackgrounProcess from "@/src/components/merger/BackgrounProcess";
 
 // export const metadata: Metadata = {
 //   title: "JBook | Jcasp Technologies",

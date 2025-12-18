@@ -53,6 +53,13 @@ import {
 import { toast } from "react-toastify";
 import { GoDotFill } from "react-icons/go";
 import { useRouter } from "next/navigation";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "@/src/redux/store";
+import {
+  mergerReset,
+  setPrimaryAccData,
+  setSecondaryAccData,
+} from "@/src/redux/slices/mergerSlice";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -68,6 +75,7 @@ export const VisuallyHiddenInput = styled("input")({
 
 const UserLayout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setLoading] = useState<boolean>(false);
   const [sideBar, setSideBar] = useState<boolean>(true);
   const [userAccAnchor, setUserAccAnchor] = useState<null | HTMLElement>(null);
@@ -98,7 +106,15 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [deleteAccPassEye, setDeleteAccPassEye] = useState<boolean>(false);
   const [userPic, setUserPic] = useState<string | null>(null);
   const [PostPhoto, setPostPhoto] = useState<string | null>(null);
-  const [selectedMergeAcc, setSelectedMergeAcc] = useState<string[]>([]);
+  const [selectedMergeAcc, setSelectedMergeAcc] = useState<Record<string, any>>(
+    {}
+  );
+  const isMerging = useSelector(
+    (state: RootState) => state.merger.mergingProgress.isMerging
+  );
+  const PrimaryAccData = {
+    emailId: "abc1@gmail.com",
+  };
 
   const openUserAccMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     setUserAccAnchor(event.currentTarget);
@@ -268,24 +284,24 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   };
 
   const handleCheckAcc = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked) {
-      const index = selectedMergeAcc.indexOf(event.target.value);
-      if (index == -1)
-        setSelectedMergeAcc([...selectedMergeAcc, event.target.value]);
-    } else {
-      let temp = [...selectedMergeAcc];
-      const index = temp.indexOf(event.target.value);
-      if (index !== -1) {
-        temp.splice(index, 1);
-        setSelectedMergeAcc([...temp]);
-      }
+    if (event.target.checked && event.target.value) {
+      setSelectedMergeAcc({
+        emailId: event.target.value,
+      });
     }
   };
 
   const onMergeStart = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     console.log("Selected Accounts: ", selectedMergeAcc);
+    dispatch(mergerReset());
+    dispatch(setPrimaryAccData(PrimaryAccData));
+    dispatch(setSecondaryAccData(selectedMergeAcc));
     router.push("/merger");
+  };
+
+  const handleLogout = () => {
+    router.replace("/");
   };
 
   return (
@@ -345,7 +361,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   <span className="leading-px">Settings</span>
                 </div>
               </MenuItem>
-              <MenuItem onClick={closeUserAccMenu}>
+              <MenuItem onClick={handleLogout}>
                 <div className="flex items-center gap-1">
                   <MdLogout className="text-2xl" />
                   <span className="leading-px">Logout</span>
@@ -366,8 +382,9 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
         <ul className="flex flex-col">
           <li className="hover:bg-slate-200">
             <button
+              disabled={isMerging}
               type="button"
-              className="w-full p-2 flex items-center text-primary gap-2 cursor-pointer"
+              className="w-full p-2 flex items-center text-primary disabled:text-slate-300 gap-2 cursor-pointer disabled:cursor-not-allowed"
               onClick={openAddDialog}
             >
               <FaCirclePlus className="text-[25px]" />
@@ -1417,7 +1434,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
                       <form onSubmit={onMergeStart}>
                         <div className="max-h-[250px] overflow-y-auto mb-5">
-                          <FormGroup>
+                          <RadioGroup name="secondaryAcc">
                             <ul className="ms-4">
                               {/* Accounts list */}
                               {filteredAccounts &&
@@ -1425,7 +1442,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                                   <li key={`user-acc-${inx}`}>
                                     <FormControlLabel
                                       control={
-                                        <Checkbox
+                                        <Radio
                                           value={acc}
                                           onChange={handleCheckAcc}
                                         />
@@ -1441,7 +1458,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                                   No account found
                                 </p>
                               )}
-                          </FormGroup>
+                          </RadioGroup>
                         </div>
 
                         <div className="text-center">

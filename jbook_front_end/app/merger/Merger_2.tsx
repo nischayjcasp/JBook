@@ -1,5 +1,12 @@
-import { AppDispatch, RootState } from "@/src/lib/store";
-import { mergerNext } from "@/src/redux/slices/mergerSlice";
+import { AppDispatch, ReduxStore, RootState } from "@/src/redux/store";
+import {
+  mergerNext,
+  mergerPrev,
+  mergeSuccess,
+  startMerging,
+  stopMerging,
+  updateMergingProcess,
+} from "@/src/redux/slices/mergerSlice";
 import { useRouter } from "next/navigation";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
@@ -36,7 +43,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
   const [userPostsExpand, setUserPostsExpand] = useState<boolean>(true);
 
   const handleBackAction = () => {
-    router.replace("/dashboard");
+    dispatch(mergerPrev());
   };
 
   const handleNextStep = () => {
@@ -54,7 +61,28 @@ const Merger_2 = ({ active }: { active: boolean }) => {
 
   const handleMergerSubmit = (data: any) => {
     console.log("Data", data);
-    dispatch(mergerNext());
+    // dispatch(mergerNext());
+    router.push("/dashboard");
+    dispatch(startMerging({ mergedPost: 0, totalPost: 100 }));
+
+    const mergingInterval = setInterval(() => {
+      const MergedPosts =
+        ReduxStore.getState().merger.mergingProgress.mergedPost;
+      const TotalPosts = ReduxStore.getState().merger.mergingProgress.totalPost;
+
+      console.log("Interval is running..", MergedPosts, TotalPosts);
+
+      if (MergedPosts < TotalPosts) {
+        dispatch(updateMergingProcess({ mergedPost: 10 }));
+      } else {
+        clearInterval(mergingInterval);
+        dispatch(
+          stopMerging({ mergedPost: MergedPosts, totalPost: TotalPosts })
+        );
+        router.push("/merger");
+        dispatch(mergeSuccess());
+      }
+    }, 1000);
   };
 
   const UserPosts = [1, 2, 3, 4, 5, 6];
@@ -92,7 +120,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <div className="p-2 bg-slate-500 text-white rounded-lg">
                 <p className="font-semibold">Secondary :</p>
               </div>
-              <p>{secondaryAccData[0].email ?? "abc2@gmail.com"}</p>
+              <p>{"abc2@gmail.com"}</p>
             </div>
           </div>
         </div>

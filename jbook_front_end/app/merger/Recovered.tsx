@@ -15,13 +15,15 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
 import MergerPostCard from "@/src/components/merger/MergerPostCard";
-import { MdError } from "react-icons/md";
-import { useRouter } from "next/navigation";
 import { mergerReset } from "@/src/redux/slices/mergerSlice";
+import { useRouter } from "next/navigation";
 
-const Merger_4 = ({ active }: { active: boolean }) => {
+const Recovered = ({ active }: { active: boolean }) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
+  const [primaryPassEye, setPrimaryPassEye] = useState<boolean>(false);
+  const UserPosts = [1, 2, 3, 4, 5, 6];
+
   const mergerActiveStep = useSelector(
     (state: RootState) => state.merger.mergerActiveStep
   );
@@ -49,8 +51,8 @@ const Merger_4 = ({ active }: { active: boolean }) => {
     >
       {/* Header */}
       <div className="w-full p-4 border border-slate-400 rounded-md">
-        <p className="text-center text-xl font-semibold text-red-700">
-          Merging failed due to Errors
+        <p className="text-center text-xl font-semibold text-green-700">
+          Congratulation, we have recovered all accounts successfully .
         </p>
       </div>
 
@@ -58,68 +60,35 @@ const Merger_4 = ({ active }: { active: boolean }) => {
       <div className="flex-1">
         {/* Check mark */}
         <div className="flex justify-center my-20">
-          <MdError className="text-7xl text-red-700" />
+          <FaCheckCircle className="text-7xl text-green-700" />
         </div>
 
         {/* Accounts List */}
         <div>
           <p className="text-xl font-semibold text-center mb-4">
-            Error occurred during merging the all data from secondary to primary
-            account
+            We have successfully recovered the all accounts
           </p>
           <div className="flex justify-center mb-10">
             <div className="rounded-lg py-4 px-10 flex items-center gap-x-4 border border-slate-500">
               <div className="flex items-center gap-3 border border-slate-500 p-4 rounded-lg">
-                <div className="bg-primary text-white p-2 rounded-lg">
-                  <p className="font-semibold">Primary :</p>
+                <div className="bg-slate-500 text-white p-2 rounded-lg">
+                  <p className="font-semibold">Account :</p>
                 </div>
                 <p>{primaryAccData.email ?? "abc1@gmail.com"}</p>
               </div>
-              <div>
-                <FaArrowLeftLong className="text-2xl" />
-              </div>
+              <div>AND</div>
               <div className="flex items-center gap-3 border border-slate-500 p-4 rounded-lg">
                 <div className="p-2 bg-slate-500 text-white rounded-lg">
-                  <p className="font-semibold">Secondary :</p>
+                  <p className="font-semibold">Account :</p>
                 </div>
                 <p>{"abc2@gmail.com"}</p>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Account Recovery */}
-        <div className="border p-4 rounded-md">
-          <p className="font-semibold text-lg">
-            Do you facing the error in the merging, please retry merging.
-          </p>
-
-          <div className="flex justify-center items-center gap-5 py-5">
-            <button
-              type="button"
-              className="p-3 bg-primary text-white rounded-lg font-semibold cursor-pointer"
-            >
-              Retry Merger
-            </button>
-
-            <p>OR</p>
-
-            <button
-              type="button"
-              className="p-3 bg-primary text-white rounded-lg font-semibold cursor-pointer"
-            >
-              Recover All Accounts
-            </button>
-          </div>
-
-          <p className="text-red-700 flex gap-2">
-            <span>Still facing the error no worries, please contact us on</span>
-            <a
-              href="mailto:customer_care@gmail.com"
-              className="text-primary underline font-semibold"
-            >
-              customer_care@gmail.com
-            </a>
+          <p className="text-center">
+            We have recovered all account as seperate account so nothing is
+            merged, if accounts merged partially then they are recovered to
+            state as before merging.{" "}
           </p>
         </div>
       </div>
@@ -138,4 +107,4 @@ const Merger_4 = ({ active }: { active: boolean }) => {
   );
 };
 
-export default Merger_4;
+export default Recovered;

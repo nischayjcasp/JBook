@@ -1,8 +1,8 @@
-import { RootState } from "@/src/lib/store";
+import { AppDispatch, RootState } from "@/src/redux/store";
 import React from "react";
 import { FaCheckCircle } from "react-icons/fa";
 import { FaArrowLeftLong } from "react-icons/fa6";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Accordion from "@mui/material/Accordion";
 import AccordionSummary from "@mui/material/AccordionSummary";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -15,8 +15,12 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
 import MergerPostCard from "@/src/components/merger/MergerPostCard";
+import { mergerReset } from "@/src/redux/slices/mergerSlice";
+import { useRouter } from "next/navigation";
 
 const Merger_3 = ({ active }: { active: boolean }) => {
+  const router = useRouter();
+  const dispatch = useDispatch<AppDispatch>();
   const [primaryPassEye, setPrimaryPassEye] = useState<boolean>(false);
   const UserPosts = [1, 2, 3, 4, 5, 6];
 
@@ -31,6 +35,11 @@ const Merger_3 = ({ active }: { active: boolean }) => {
   const secondaryAccData = useSelector(
     (state: RootState) => state.merger.secondaryAcc
   );
+
+  const handleCloseAction = () => {
+    router.replace("/dashboard");
+    // dispatch(mergerReset());
+  };
 
   return (
     <div
@@ -75,7 +84,7 @@ const Merger_3 = ({ active }: { active: boolean }) => {
                 <div className="p-2 bg-slate-500 text-white rounded-lg">
                   <p className="font-semibold">Secondary :</p>
                 </div>
-                <p>{secondaryAccData[0].email ?? "abc2@gmail.com"}</p>
+                <p>{"abc2@gmail.com"}</p>
               </div>
             </div>
           </div>
@@ -299,9 +308,9 @@ const Merger_3 = ({ active }: { active: boolean }) => {
         <button
           type="button"
           className="min-w-[90px] py-1.5 bg-red-700 rounded-sm text-white font-medium cursor-pointer"
-          // onClick={handleBackAction}
+          onClick={handleCloseAction}
         >
-          Cancel
+          Close
         </button>
       </div>
     </div>

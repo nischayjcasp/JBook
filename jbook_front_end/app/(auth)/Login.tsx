@@ -53,7 +53,7 @@ const Login = () => {
 
   useEffect(() => {
     if (window.google) {
-      const client = google.accounts.oauth2.initCodeClient({
+      const client = window.google.accounts.oauth2.initCodeClient({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
         scope: "openid email profile",
         callback: handleGoogleResponse,
@@ -112,8 +112,8 @@ const Login = () => {
   //Sign in with facebook
 
   const loginWithFacebook = () => {
-    FB.login(
-      function (response) {
+    window.FB.login(
+      function (response: any) {
         if (response.authResponse) {
           handleFBResponse(response.authResponse);
         } else {

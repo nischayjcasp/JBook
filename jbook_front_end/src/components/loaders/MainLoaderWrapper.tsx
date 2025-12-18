@@ -1,8 +1,9 @@
 "use client";
 
 import { useSelector } from "react-redux";
-import { RootState } from "@/src/lib/store";
+import { RootState } from "@/src/redux/store";
 import MainLoader from "@/app/loading";
+import BackgrounProcess from "../merger/BackgrounProcess";
 
 const MainLoaderWrapper = ({
   children,
@@ -12,11 +13,21 @@ const MainLoaderWrapper = ({
   const isLoading = useSelector(
     (state: RootState) => state.mainLoader.isLoading
   );
+  const isMerging = useSelector(
+    (state: RootState) => state.merger.mergingProgress.isMerging
+  );
+  const mergedPosts = useSelector(
+    (state: RootState) => state.merger.mergingProgress.mergedPost
+  );
+  const totalPosts = useSelector(
+    (state: RootState) => state.merger.mergingProgress.totalPost
+  );
 
   return (
     <>
       {isLoading && <MainLoader />}
       {children}
+      {isMerging && <BackgrounProcess data={{ mergedPosts, totalPosts }} />}
     </>
   );
 };

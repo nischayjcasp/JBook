@@ -1,11 +1,8 @@
 "use client";
 
-import PostCard from "@/src/components/dashboard/PostCard";
 import { CircularProgress, Dialog, Pagination, TextField } from "@mui/material";
 import { Controller, useForm } from "react-hook-form";
-import { FaSearch } from "react-icons/fa";
 import {
-  DatePicker,
   DateTimePicker,
   LocalizationProvider,
   renderTimeViewClock,
@@ -16,7 +13,6 @@ import { IoMdClose } from "react-icons/io";
 import defaultImage from "@/app/assets/images/sampleImage.webp";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { VisuallyHiddenInput } from "@/app/dashboard/layout";
 import {
   addPostSchema,
@@ -24,49 +20,27 @@ import {
 } from "@/src/lib/schemas/settings.schema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "@/src/redux/store";
 
-const Dashboard = () => {
+interface ViewPostProps {
+  postId: string;
+  userName: string;
+  postDate: string;
+  postText: string;
+  postImage: string;
+}
+
+const ViewPost = ({ data }: { data: ViewPostProps }) => {
+  const { postId, userName, postDate, postText, postImage } = data;
+  const isMerging = useSelector(
+    (state: RootState) => state.merger.mergingProgress.isMerging
+  );
+
   const [isLoading, setLoading] = useState<boolean>(false);
   const pageRef = useRef<HTMLDivElement | null>(null);
   const [editDialog, setEditDialog] = useState<boolean>(false);
-  const posts = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5,
-    6, 7, 8, 9, 10,
-  ];
   const [PostPhoto, setPostPhoto] = useState<string | null>(null);
-  const [filteredPosts, setFilteredPosts] = useState<number[]>([]);
-  const [pagination, setPagination] = useState<number>(1);
-  const totalPagination = Math.ceil(posts.length / 9);
-
-  useEffect(() => {
-    setFilteredPosts(posts.slice(0, posts[9] ? 9 : undefined));
-  }, []);
-
-  const handlePagination = (
-    event: React.ChangeEvent<unknown>,
-    value: number
-  ) => {
-    setPagination(value);
-    setFilteredPosts(
-      posts.slice((value - 1) * 9, posts[value * 9] ? value * 9 : undefined)
-    );
-    if (pageRef.current) {
-      pageRef.current.scrollTo({
-        top: 0,
-        behavior: "smooth",
-      });
-    }
-  };
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm();
-
-  const onSearch = (data: any) => {
-    console.log(data);
-  };
 
   //Edit post form
   const {
@@ -117,66 +91,53 @@ const Dashboard = () => {
     });
   };
 
-  //handle Post serach
-  const handlePostSearch = () => {};
-
   return (
     <>
-      <div
-        className="w-full flex flex-col gap-5 max-h-screen overflow-y-auto"
-        ref={pageRef}
-      >
-        {/* Search bar */}
-        <div className="w-full bg-white py-5 sticky top-0 left-0 right-0">
-          <form
-            onSubmit={handleSubmit(onSearch)}
-            className="mx-auto relative w-sm sm:w-lg lg:w-xl"
-          >
-            <input
-              type="text"
-              name="dash_search"
-              className="w-xl px-3 py-1.5 border rounded-sm"
-              placeholder="Search here.."
-              onChange={handlePostSearch}
-            />
-            <button
-              type="submit"
-              className="absolute top-1/2 -translate-y-1/2 right-0 p-2 cursor-pointer"
-            >
-              <FaSearch className="text-xl" />
-            </button>
-          </form>
+      <div className="px-24 py-7 max-h-screen overflow-y-auto">
+        <p className="text-2xl font-semibold mb-5">Post: {postId}</p>
+
+        {/* Posted by */}
+        <div className="mb-4">
+          <p className="font-semibold text-lg text-left">{userName}</p>
+          <p className="text-sm text-left text-black/60">
+            {new Date(postDate).toLocaleString()}
+          </p>
         </div>
 
-        {/* List of post */}
-        <div className={`px-16 flex-1 inline-grid grid-cols-3 gap-5`}>
-          {filteredPosts &&
-            filteredPosts.map((posts, inx) => (
-              <PostCard
-                key={`user-post-${inx}`}
-                openEditDialog={openEditDialog}
-              />
-            ))}
-        </div>
+        {/* Post Text */}
+        <p className="text-left mb-7">{postText}</p>
 
-        {/* Pagination */}
-        <div className="flex justify-end mb-5">
-          <Pagination
-            count={totalPagination}
-            page={pagination}
-            onChange={handlePagination}
-            shape="rounded"
-            size="large"
-            sx={{
-              "& .Mui-selected": {
-                backgroundColor: "#e1533c !important",
-                color: "white",
-              },
-              "& .MuiPaginationItem-root:hover": {
-                backgroundColor: "rgba(255,83,60,0.3)",
-              },
+        <Image
+          src={postImage}
+          alt="User post image"
+          width={500}
+          height={500}
+          className="flex-1 mx-auto w-[500px] h-[400px] mb-10"
+        />
+
+        <div className="flex justify-center items-center gap-4">
+          <button
+            type="button"
+            disabled={isMerging}
+            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-primary text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+            onClick={() => {
+              openEditDialog();
             }}
-          />
+          >
+            Edit
+          </button>
+
+          <button
+            disabled={isMerging}
+            type="button"
+            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-red-600 text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
+              event.preventDefault();
+              toast.success("Post deleted successfully.");
+            }}
+          >
+            Delete
+          </button>
         </div>
       </div>
 
@@ -354,4 +315,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default ViewPost;

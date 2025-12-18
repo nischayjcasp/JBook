@@ -6,8 +6,10 @@ import Merger_2 from "./Merger_2";
 import Merger_3 from "./Merger_3";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { RootState } from "@/src/lib/store";
+import { RootState } from "@/src/redux/store";
 import Merger_4 from "./Merger_4";
+import Recovered from "./Recovered";
+import FailedRecovery from "./FailedRecovery";
 
 const Merger = () => {
   const router = useRouter();
@@ -27,6 +29,10 @@ const Merger = () => {
       <Merger_3 active={mergerActiveStep === 3} />
 
       <Merger_4 active={mergerActiveStep === 4} />
+
+      <Recovered active={mergerActiveStep === 5} />
+
+      <FailedRecovery active={mergerActiveStep === 6} />
     </div>
   );
 };

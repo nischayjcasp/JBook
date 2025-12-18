@@ -53,6 +53,60 @@ const SignUp = () => {
     console.log(data);
   };
 
+  //Sign up with google: Front-end
+  const [googleClient, setGoogleClient] = useState<any>(null);
+
+  useEffect(() => {
+    if (window.google) {
+      const client = window.google.accounts.oauth2.initCodeClient({
+        client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+        scope: "openid email profile",
+        callback: handleGoogleResponse,
+      });
+
+      setGoogleClient(client);
+    }
+  }, []);
+
+  const handleGoogleResponse = async (response: any) => {
+    console.log("Code: ", response.code);
+  };
+
+  const handleGoogleLogin = () => {
+    if (!googleClient) return;
+    googleClient.requestCode();
+  };
+
+  // Sign up with Facebook
+  const loginWithFacebook = () => {
+    window.FB.login(
+      function (response: any) {
+        if (response.authResponse) {
+          handleFBResponse(response.authResponse);
+        } else {
+          console.log("User cancelled login");
+        }
+      },
+      { scope: "email,public_profile" }
+    );
+  };
+
+  const handleFBResponse = async (authResp: any) => {
+    console.log("FB Token:", authResp);
+  };
+
+  // Sign up with linked in
+  const handleSignInWithLinkedIn = () => {
+    const linkedInSignInUrl = new URLSearchParams({
+      response_type: "code",
+      client_id: process.env.NEXT_PUBLIC_LINKED_IN_APP_ID!,
+      redirect_uri: process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI!,
+      scope: "openid profile email",
+    });
+
+    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${linkedInSignInUrl}`;
+  };
+
   return (
     <div className="w-full h-full max-h-screen flex overflow-hidden">
       {/* Sign Up forms */}
@@ -70,11 +124,13 @@ const SignUp = () => {
         <form className="w-full" onSubmit={signupSubmit(handleSignUp)}>
           {/* Sign up with */}
           <ul className="flex flex-col gap-3">
+            {/* Google */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
               hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={handleGoogleLogin}
               >
                 <Image
                   src={googleLogo}
@@ -87,11 +143,13 @@ const SignUp = () => {
               </button>
             </li>
 
+            {/* Facebook */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
               hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={loginWithFacebook}
               >
                 <Image
                   src={facebookLogo}
@@ -104,11 +162,13 @@ const SignUp = () => {
               </button>
             </li>
 
+            {/* Linked In */}
             <li>
               <button
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
               hover:bg-slate-100 rounded-lg cursor-pointer"
+                onClick={handleSignInWithLinkedIn}
               >
                 <FaLinkedin className="w-[18px] h-[18px] text-[#2e78b6]" />
                 <span className="font-semibold text-lg">
@@ -119,6 +179,7 @@ const SignUp = () => {
           </ul>
 
           <hr className="my-4 w-full h-px border-none bg-slate-300" />
+
           {/* Username */}
           <div className="mb-2">
             <Controller

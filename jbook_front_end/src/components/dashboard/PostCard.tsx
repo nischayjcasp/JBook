@@ -6,12 +6,17 @@ import React, { useState } from "react";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import Link from "next/link";
 import { toast } from "react-toastify";
+import { useSelector } from "react-redux";
+import { RootState } from "@/src/redux/store";
 
 interface PostCardProps {
   openEditDialog?: () => void;
 }
 
 const PostCard = ({ openEditDialog }: PostCardProps) => {
+  const isMerging = useSelector(
+    (state: RootState) => state.merger.mergingProgress.isMerging
+  );
   return (
     <Link
       href="dashboard/post/1"
@@ -32,7 +37,8 @@ const PostCard = ({ openEditDialog }: PostCardProps) => {
         <div className="flex items-center">
           <button
             type="button"
-            className="p-2 cursor-pointer text-primary rounded-sm flex items-center gap-1"
+            disabled={isMerging}
+            className="p-2 cursor-pointer disabled:cursor-not-allowed text-primary disabled:text-slate-300 rounded-sm flex items-center gap-1"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
               event.preventDefault();
               if (openEditDialog) openEditDialog();
@@ -42,8 +48,9 @@ const PostCard = ({ openEditDialog }: PostCardProps) => {
           </button>
 
           <button
+            disabled={isMerging}
             type="button"
-            className="p-2 cursor-pointer text-red-600 rounded-sm flex items-center gap-1"
+            className="p-2 cursor-pointer disabled:cursor-not-allowed text-red-600 disabled:text-slate-300 rounded-sm flex items-center gap-1"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
               event.preventDefault();
               toast.success("Post deleted successfully.");
