@@ -14,7 +14,7 @@ import { yupResolver } from "@hookform/resolvers/yup";
 import {
   resetPassSchema,
   ResetPassSchemaType,
-} from "@/src/lib/schemas/auth.schema";
+} from "@/lib/schemas/auth.schema";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const ResetPassword = () => {

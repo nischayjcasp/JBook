@@ -6,7 +6,7 @@ import Merger_2 from "./Merger_2";
 import Merger_3 from "./Merger_3";
 import { useRouter } from "next/navigation";
 import { useSelector } from "react-redux";
-import { RootState } from "@/src/redux/store";
+import { RootState } from "@/redux/store";
 import Merger_4 from "./Merger_4";
 import Recovered from "./Recovered";
 import FailedRecovery from "./FailedRecovery";

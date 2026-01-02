@@ -49,17 +49,18 @@ import {
   PassChangeSchemaType,
   userPhotoSupportedFormats,
   userProfileSchema,
-} from "@/src/lib/schemas/settings.schema";
+} from "@/lib/schemas/settings.schema";
 import { toast } from "react-toastify";
 import { GoDotFill } from "react-icons/go";
 import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "@/src/redux/store";
+import { AppDispatch, RootState } from "@/redux/store";
 import {
   mergerReset,
   setPrimaryAccData,
   setSecondaryAccData,
-} from "@/src/redux/slices/mergerSlice";
+} from "@/redux/slices/mergerSlice";
+import { logoutAPI } from "@/services/auth.service";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -109,12 +110,15 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [selectedMergeAcc, setSelectedMergeAcc] = useState<Record<string, any>>(
     {}
   );
+
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
   );
   const PrimaryAccData = {
-    emailId: "abc1@gmail.com",
+    email: "abc1@gmail.com",
   };
+
+  const userData = useSelector((state: RootState) => state.user.userData);
 
   const openUserAccMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     setUserAccAnchor(event.currentTarget);
@@ -139,11 +143,19 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     control: accountControl,
     watch: accountFormWatch,
     setValue: accountSetValue,
-    getValues: accountGetValues,
     reset: accountReset,
     formState: { errors: accountErrors },
   } = useForm({
     resolver: yupResolver(userProfileSchema),
+    defaultValues: {
+      user_photo: userData.userPhoto,
+      user_display_name: userData.userDisplayName,
+      user_username: userData.userName ?? "",
+      user_dob: new Date(userData.userDob),
+      user_email: userData.userEmail,
+      user_gender: userData.userGender,
+      user_password: "*********",
+    },
   });
 
   const handleAccountSave = (data: any) => {
@@ -157,8 +169,8 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     if (userPhoto && userPhotoSupportedFormats.includes(userPhoto.type)) {
       const photoUrl = URL.createObjectURL(userPhoto);
       console.log("photoUrl", photoUrl);
-      setUserPic(photoUrl);
-    } else setUserPic(null);
+      accountSetValue("user_photo", photoUrl);
+    }
   }, [userPhoto]);
 
   //Add post form
@@ -268,11 +280,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     setSettingActiveTab(0);
   };
 
-  useEffect(() => {
-    closeChangePassDialog();
-    closeDelAccDialog();
-  }, [settingActiveTab]);
-
   // Merge Account search
   const handleAccSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log(event.target.value);
@@ -283,6 +290,19 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     setFilteredAccounts([...filteredAcc]);
   };
 
+  //
+  const {
+    handleSubmit: selectAccSubmit,
+    watch: selectAccWatch,
+    control: selectAccControl,
+    reset: selectAccReset,
+    formState: { errors: selectAccErrors },
+  } = useForm({
+    // resolver: yupResolver(),
+  });
+
+  const SelectedAcc = selectAccWatch("selectedAcc");
+
   const handleCheckAcc = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked && event.target.value) {
       setSelectedMergeAcc({
@@ -291,18 +311,42 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const onMergeStart = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    console.log("Selected Accounts: ", selectedMergeAcc);
+  const onMergeStart = (data: any) => {
+    console.log("Selected Accounts: ", data);
     dispatch(mergerReset());
     dispatch(setPrimaryAccData(PrimaryAccData));
-    dispatch(setSecondaryAccData(selectedMergeAcc));
+    dispatch(
+      setSecondaryAccData({
+        email: SelectedAcc,
+      })
+    );
     router.push("/merger");
   };
 
-  const handleLogout = () => {
-    router.replace("/");
+  const handleLogout = async () => {
+    try {
+      const logoutRes = await logoutAPI();
+
+      console.log("logoutRes: ", logoutRes);
+
+      if (logoutRes.status === 200) {
+        toast.success(logoutRes.message);
+        router.replace("/login");
+      } else {
+        toast.error(logoutRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    }
   };
+
+  useEffect(() => {
+    closeChangePassDialog();
+    closeDelAccDialog();
+    selectAccReset();
+  }, [settingActiveTab]);
 
   return (
     <div className="w-full max-h-screen overflow-hidden flex">
@@ -328,11 +372,11 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
               <div className="flex items-center gap-2">
                 <Avatar
                   alt="Username"
-                  src="/userDefaultPic.jpg"
+                  src={userData.userPhoto ?? "/userDefaultPic.jpg"}
                   sx={{ width: 28, height: 28 }}
                 />
                 <p className="text-black text-sm font-semibold capitalize">
-                  User Name
+                  {userData.userDisplayName ?? "Guest"}
                 </p>
               </div>
               <IoIosArrowDown />
@@ -651,26 +695,25 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                 >
                   {/* Photo */}
                   <div className="mb-7">
-                    <p className="font-semibold mb-2">Photon</p>
-                    <div className="flex gap-4">
-                      <div>
-                        <Avatar
-                          alt="Remy Sharp"
-                          src={
-                            !accountErrors.user_photo?.message && userPic
-                              ? userPic
-                              : "/userDefaultPic.jpg"
-                          }
-                          sx={{ width: "90px", height: "90px" }}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <div className="mb-4">
-                          <Controller
-                            name="user_photo"
-                            control={accountControl}
-                            render={({ field: { name, value, onChange } }) => (
-                              <label>
+                    <p className="font-semibold mb-2">User Photo</p>
+
+                    <div className="flex-1 flex flex-col gap-3">
+                      <div className="">
+                        <Controller
+                          name="user_photo"
+                          control={accountControl}
+                          render={({ field: { name, value, onChange } }) => (
+                            <label className="flex items-center gap-4">
+                              <div>
+                                <Avatar
+                                  alt="Remy Sharp"
+                                  src={
+                                    (value as string) ?? "/userDefaultPic.jpg"
+                                  }
+                                  sx={{ width: "90px", height: "90px" }}
+                                />
+                              </div>
+                              <div>
                                 <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer">
                                   Choose photo
                                 </p>
@@ -682,21 +725,21 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                                       onChange(event.target.files[0]);
                                   }}
                                 />
-                              </label>
-                            )}
-                          />
-                        </div>
+                              </div>
+                            </label>
+                          )}
+                        />
+                      </div>
 
-                        <div>
-                          <p className="max-w-full overflow-x-hidden min-h-6 text-black/70 text-xs">
-                            {userPhoto && userPhoto?.name}
-                          </p>
-                          <p className="min-h-6  text-red-500 text-xs">
-                            {accountErrors.user_photo
-                              ? accountErrors.user_photo?.message
-                              : " "}
-                          </p>
-                        </div>
+                      <div>
+                        <p className="max-w-full overflow-x-hidden text-black/70 text-xs mb-2">
+                          {userPhoto && userPhoto?.name}
+                        </p>
+                        <p className=" text-red-500 text-xs">
+                          {accountErrors.user_photo
+                            ? accountErrors.user_photo?.message
+                            : " "}
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -838,7 +881,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                           placeholder="Enter email "
                           name={name}
                           size="small"
-                          value={"user@g.com"}
+                          value={value}
                           disabled
                           onChange={onChange}
                           variant="outlined"
@@ -856,15 +899,15 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                       <Controller
                         name="user_password"
                         control={accountControl}
-                        render={({ field: { value, onChange, name } }) => (
+                        render={({ field: { onChange, name } }) => (
                           <TextField
+                            disabled
                             type={accountPassEye ? "text" : "password"}
                             label="Password"
                             placeholder="Enter password "
                             size="small"
                             name={name}
-                            value={value ?? "*****"}
-                            disabled
+                            value={"***********"}
                             onChange={onChange}
                             variant="outlined"
                             className="w-[400px]"
@@ -1353,6 +1396,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
             {/* Merge */}
             {settingActiveTab === 1 && (
               <div className="">
+                {/* Header */}
                 <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
                   <p>Merge</p>
                   <button
@@ -1364,52 +1408,53 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   </button>
                 </div>
 
-                <div className="p-4">
+                <div className="p-4 flex flex-col">
                   {/* Connected acc. */}
                   <div className="mb-5">
                     <p className="font-semibold">Connected Account</p>
                     <div className="ms-3">
                       <table className="w-full">
                         <tbody>
-                          {[1, 2, 3].map((acc, inx) => (
-                            <tr key={`Connected-Acc-${inx}`}>
-                              {/* Email */}
-                              <td className="p-1.5 w-3/5">
-                                <div className="flex items-center gap-3">
-                                  <GoDotFill className="text-sm" />
-                                  <p className="leading-none">
-                                    abc{inx + 1}@g.com
-                                  </p>
-                                </div>
-                              </td>
-                              {/* Verified badge */}
-                              <td className="p-1.5 w-1/5">
-                                <p className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600 text-white px-1.5 py-1 rounded-sm">
-                                  <IoShieldCheckmarkSharp className="text-lg" />
-                                  <span>Verified</span>
-                                </p>
-                              </td>
-                              {/* Primary/Secondary */}
-                              <td className="p-1.5 w-1/5">
-                                {inx == 0 ? (
-                                  <p className="text-xs text-blue-700">
-                                    Primary
-                                  </p>
-                                ) : (
-                                  <p className="text-xs text-slate-500">
-                                    Secondary
-                                  </p>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+                          {userData.conncetedAcc &&
+                            userData.conncetedAcc.map((acc, inx) => (
+                              <tr key={`Connected-Acc-${inx}`}>
+                                {/* Email */}
+                                <td className="p-1.5 w-3/5">
+                                  <div className="flex items-center gap-3">
+                                    <GoDotFill className="text-sm" />
+                                    <p className="leading-none">{acc.email}</p>
+                                  </div>
+                                </td>
+                                {/* Verified badge */}
+                                <td className="p-1.5 w-1/5">
+                                  {acc.isVerified && (
+                                    <p className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-green-600 text-white px-1.5 py-1 rounded-sm">
+                                      <IoShieldCheckmarkSharp className="text-lg" />
+                                      <span>Verified</span>
+                                    </p>
+                                  )}
+                                </td>
+                                {/* Primary/Secondary */}
+                                <td className="p-1.5 w-1/5">
+                                  {acc.isPrimary ? (
+                                    <p className="text-sm text-blue-700">
+                                      Primary
+                                    </p>
+                                  ) : (
+                                    <p className="text-sm text-slate-500">
+                                      Secondary
+                                    </p>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>
                   </div>
 
                   {/* Add account */}
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold mb-5">
                       Want to add/merge account?
                     </p>
@@ -1432,35 +1477,55 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                         </button>
                       </div>
 
-                      <form onSubmit={onMergeStart}>
-                        <div className="max-h-[250px] overflow-y-auto mb-5">
-                          <RadioGroup name="secondaryAcc">
-                            <ul className="ms-4">
-                              {/* Accounts list */}
-                              {filteredAccounts &&
-                                filteredAccounts.map((acc, inx) => (
-                                  <li key={`user-acc-${inx}`}>
-                                    <FormControlLabel
-                                      control={
-                                        <Radio
-                                          value={acc}
-                                          onChange={handleCheckAcc}
+                      {/* Selecte Account */}
+                      <form onSubmit={selectAccSubmit(onMergeStart)}>
+                        <div className="max-h-[200px] overflow-y-auto mb-5">
+                          <Controller
+                            name="selectedAcc"
+                            control={selectAccControl}
+                            rules={{
+                              required: {
+                                value: true,
+                                message: "Please select the account!",
+                              },
+                            }}
+                            render={({ field: { onChange, name, value } }) => (
+                              <RadioGroup
+                                name={name}
+                                value={value ?? null}
+                                onChange={onChange}
+                              >
+                                <ul className="ms-4">
+                                  {/* Accounts list */}
+                                  {filteredAccounts &&
+                                    filteredAccounts.map((acc, inx) => (
+                                      <li key={`user-acc-${inx}`}>
+                                        <FormControlLabel
+                                          control={
+                                            <Radio
+                                              value={acc}
+                                              // onChange={handleCheckAcc}
+                                            />
+                                          }
+                                          label={acc}
                                         />
-                                      }
-                                      label={acc}
-                                    />
-                                  </li>
-                                ))}
-                            </ul>
-                            {filteredAccounts &&
-                              filteredAccounts.length <= 0 && (
-                                <p className="text-red-500 font-semibold text-center p-4">
-                                  No account found
-                                </p>
-                              )}
-                          </RadioGroup>
+                                      </li>
+                                    ))}
+                                </ul>
+                                {filteredAccounts &&
+                                  filteredAccounts.length <= 0 && (
+                                    <p className="text-red-500 font-semibold text-center p-4">
+                                      No account found
+                                    </p>
+                                  )}
+                              </RadioGroup>
+                            )}
+                          />
                         </div>
-
+                        <p className="text-sm text-red-500 min-h-5 mb-1">
+                          {selectAccErrors.selectedAcc &&
+                            (selectAccErrors.selectedAcc?.message as string)}
+                        </p>
                         <div className="text-center">
                           <button
                             type="submit"

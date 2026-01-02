@@ -1,4 +1,4 @@
-import { AppDispatch, RootState } from "@/src/redux/store";
+import { AppDispatch, RootState } from "@/redux/store";
 import React from "react";
 import { FaCheckCircle } from "react-icons/fa";
 import { FaArrowLeftLong } from "react-icons/fa6";
@@ -14,8 +14,8 @@ import defaultImage from "@/app/assets/images/randomUser.jpeg";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
-import MergerPostCard from "@/src/components/merger/MergerPostCard";
-import { mergerReset } from "@/src/redux/slices/mergerSlice";
+import MergerPostCard from "@/components/merger/MergerPostCard";
+import { mergerReset } from "@/redux/slices/mergerSlice";
 import { useRouter } from "next/navigation";
 
 const Merger_3 = ({ active }: { active: boolean }) => {
@@ -75,7 +75,7 @@ const Merger_3 = ({ active }: { active: boolean }) => {
                 <div className="bg-primary text-white p-2 rounded-lg">
                   <p className="font-semibold">Primary :</p>
                 </div>
-                <p>{primaryAccData.email ?? "abc1@gmail.com"}</p>
+                <p>{primaryAccData.email ?? " "}</p>
               </div>
               <div>
                 <FaArrowLeftLong className="text-2xl" />
@@ -84,7 +84,7 @@ const Merger_3 = ({ active }: { active: boolean }) => {
                 <div className="p-2 bg-slate-500 text-white rounded-lg">
                   <p className="font-semibold">Secondary :</p>
                 </div>
-                <p>{"abc2@gmail.com"}</p>
+                <p>{secondaryAccData.email ?? " "}</p>
               </div>
             </div>
           </div>

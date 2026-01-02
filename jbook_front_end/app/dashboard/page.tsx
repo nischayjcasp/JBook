@@ -1,6 +1,8 @@
+import isAuthenticated from "@/lib/auth/isAuthenticated";
 import Dashboard from "./Dashboard";
+import { redirect } from "next/navigation";
 
-const Page = () => {
+const Page = async () => {
   return <Dashboard />;
 };
 

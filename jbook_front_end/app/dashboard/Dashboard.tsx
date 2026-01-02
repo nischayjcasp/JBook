@@ -1,6 +1,6 @@
 "use client";
 
-import PostCard from "@/src/components/dashboard/PostCard";
+import PostCard from "@/components/dashboard/PostCard";
 import { CircularProgress, Dialog, Pagination, TextField } from "@mui/material";
 import { Controller, useForm } from "react-hook-form";
 import { FaSearch } from "react-icons/fa";
@@ -21,7 +21,7 @@ import { VisuallyHiddenInput } from "@/app/dashboard/layout";
 import {
   addPostSchema,
   userPhotoSupportedFormats,
-} from "@/src/lib/schemas/settings.schema";
+} from "@/lib/schemas/settings.schema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { toast } from "react-toastify";
 

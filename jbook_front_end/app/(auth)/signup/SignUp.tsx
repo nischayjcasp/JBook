@@ -5,7 +5,12 @@ import jbookLogo from "@/app/favicon.ico";
 import jcaspLogo from "@/app/assets/logos/imgi_4_JCasp-logo-homepage.svg";
 import googleLogo from "@/app/assets/logos/google_logo.svg";
 import facebookLogo from "@/app/assets/logos/fb_logo.svg";
-import { FaLinkedin, FaQuoteLeft, FaQuoteRight } from "react-icons/fa";
+import {
+  FaArrowRight,
+  FaLinkedin,
+  FaQuoteLeft,
+  FaQuoteRight,
+} from "react-icons/fa";
 import { Controller, useForm } from "react-hook-form";
 import TextField from "@mui/material/TextField";
 import dayjs from "dayjs";
@@ -15,18 +20,87 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import Radio from "@mui/material/Radio";
 import RadioGroup from "@mui/material/RadioGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
-import { signupSchema, SignupSchemaType } from "@/src/lib/schemas/auth.schema";
-import { useRouter } from "next/navigation";
+import { signupSchema, SignupSchemaType } from "@/lib/schemas/auth.schema";
+import { redirect, useRouter, useSearchParams } from "next/navigation";
+import { Avatar, CircularProgress, Dialog } from "@mui/material";
+import { GoArrowRight } from "react-icons/go";
+import { IoMdClose } from "react-icons/io";
+import { toast } from "react-toastify";
+import {
+  EmailSignupPayloadType,
+  FacebookSignupPayload,
+  GoogleSignupPayload,
+} from "@/services/auth.type";
+import {
+  emailSingupAPI,
+  facebookSingupAPI,
+  getDeivceIpAPI,
+  googleSingupAPI,
+  linkedInSingupAPI,
+} from "@/services/auth.service";
+import { DeviceId, DeviceLocation } from "@/util/common.util";
+import { useDispatch } from "react-redux";
 
 const SignUp = () => {
-  const navigate = useRouter();
+  const router = useRouter();
+  const dispatch = useDispatch();
   const [signUpPassEye, setSignUpPassEye] = useState<boolean>(false);
   const [signUpCPassEye, setSignUpCPassEye] = useState<boolean>(false);
+  const [alreadyHaveAccount, setAlreadyHaveAccount] = useState<boolean>(false);
+  const [isLoading, setLoading] = useState<boolean>(false);
+  const randomNum = Math.floor(Math.random() * 10000);
+  let isSignupDone = useRef<boolean>(false);
+
+  const params = useSearchParams();
+  const linkendInCode = params.get("code");
+  const linkendInCallback = params.get("callback");
+
+  useEffect(() => {
+    const handleLinkedSignup = async (code: string) => {
+      try {
+        //Sign up payload
+        const deviceIpRes = await getDeivceIpAPI();
+        const deviceIp = await DeviceLocation();
+
+        const payload: GoogleSignupPayload = {
+          authCode: code,
+          user_agent: navigator.userAgent,
+          device_ip: deviceIpRes.data?.ip ?? null,
+          device_lat: deviceIp.lat,
+          device_long: deviceIp.long,
+        };
+
+        const linkedInSignupRes = await linkedInSingupAPI(payload);
+
+        console.log("linkedInSignupRes: ", linkedInSignupRes);
+
+        if (linkedInSignupRes.status === 201) {
+          toast.success(linkedInSignupRes.message);
+          router.replace("/dashboard");
+        } else {
+          toast.error(linkedInSignupRes.message);
+        }
+      } catch (error) {
+        console.log("Error: ", error);
+        let err = error as { message: string };
+        toast.error(err.message);
+        redirect("/signup");
+      } finally {
+        isSignupDone.current = false;
+      }
+    };
+
+    if (!isSignupDone.current && linkendInCode && linkendInCallback) {
+      isSignupDone.current = true;
+      console.log("linkendInCode: ", linkendInCode);
+      handleLinkedSignup(linkendInCode);
+    }
+  }, []);
 
   // Sign up form
   const {
@@ -40,17 +114,58 @@ const SignUp = () => {
   } = useForm<SignupSchemaType>({
     resolver: yupResolver(signupSchema),
     defaultValues: {
-      signup_username: "",
-      signup_dob: undefined,
-      signup_gender: "",
-      signup_email: "",
-      signup_password: "",
-      signup_cpassword: "",
+      signup_username: `ram`,
+      signup_dob: new Date("2011-05-25"),
+      signup_gender: "male",
+      signup_mobile: "8141409448",
+      signup_email: `ram${randomNum}@gmail.com`,
+      signup_password: `Ram@@${randomNum}`,
+      signup_cpassword: `Ram@@${randomNum}`,
     },
   });
 
-  const handleSignUp = (data: SignupSchemaType) => {
+  const handleEmailSignUp = async (data: SignupSchemaType) => {
     console.log(data);
+    setLoading(true);
+
+    //Sign up payload
+    const deviceIpRes = await getDeivceIpAPI();
+    const deviceIp = await DeviceLocation();
+
+    console.log("deviceIpResp: ", deviceIp);
+
+    try {
+      const payload: EmailSignupPayloadType = {
+        signup_username: data.signup_username,
+        signup_dob: data.signup_dob,
+        signup_gender: data.signup_gender,
+        signup_mobile: data.signup_mobile,
+        signup_email: data.signup_email,
+        signup_password: data.signup_password,
+        user_agent: navigator.userAgent,
+        device_ip: deviceIpRes.data?.ip ?? null,
+        device_lat: deviceIp.lat,
+        device_long: deviceIp.long,
+      };
+
+      const emailSignupRes = await emailSingupAPI(payload);
+
+      console.log("emailLoginRes: ", emailSignupRes);
+
+      if (emailSignupRes.status === 201) {
+        signupReset();
+        toast.success(emailSignupRes.message);
+        router.replace("/dashboard");
+      } else {
+        toast.error(emailSignupRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   //Sign up with google: Front-end
@@ -61,50 +176,129 @@ const SignUp = () => {
       const client = window.google.accounts.oauth2.initCodeClient({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
         scope: "openid email profile",
-        callback: handleGoogleResponse,
+        callback: handleGoogleSignupCallback,
       });
 
       setGoogleClient(client);
     }
   }, []);
 
-  const handleGoogleResponse = async (response: any) => {
+  const handleGoogleSignupCallback = async (response: any) => {
     console.log("Code: ", response.code);
+    try {
+      //Sign up payload
+      const deviceIpRes = await getDeivceIpAPI();
+      const deviceIp = await DeviceLocation();
+
+      const payload: GoogleSignupPayload = {
+        authCode: response.code,
+        user_agent: navigator.userAgent,
+        device_ip: deviceIpRes.data?.ip ?? null,
+        device_lat: deviceIp.lat,
+        device_long: deviceIp.long,
+      };
+
+      const googleSignupRes = await googleSingupAPI(payload);
+
+      console.log("googleSignupRes: ", googleSignupRes);
+
+      if (googleSignupRes.status === 201) {
+        toast.success(googleSignupRes.message);
+        router.replace("/dashboard");
+      } else {
+        toast.error(googleSignupRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSignup = () => {
     if (!googleClient) return;
     googleClient.requestCode();
   };
 
   // Sign up with Facebook
-  const loginWithFacebook = () => {
+  const handleFacebookSignup = () => {
     window.FB.login(
       function (response: any) {
-        if (response.authResponse) {
-          handleFBResponse(response.authResponse);
+        console.log("response: ", response);
+        if (response.authResponse && response.authResponse.accessToken) {
+          facebookSignupCallback(response.authResponse);
         } else {
           console.log("User cancelled login");
+          toast.error("Failed to sign up with facebook");
         }
       },
       { scope: "email,public_profile" }
     );
   };
 
-  const handleFBResponse = async (authResp: any) => {
+  const facebookSignupCallback = async (authResp: any) => {
     console.log("FB Token:", authResp);
+    // {
+    //   accessToken: "string";
+    //   data_access_expiration_time: number;
+    //   expiresIn: number;
+    //   graphDomain: "string";
+    //   signedRequest: "string";
+    //   userID: "string";
+    // }
+
+    try {
+      //Sign up payload
+      const device_id: string = DeviceId();
+      const deviceIpRes = await getDeivceIpAPI();
+      const deviceIp = await DeviceLocation();
+
+      const payload: FacebookSignupPayload = {
+        access_token: authResp.accessToken,
+        user_agent: navigator.userAgent,
+        device_ip: deviceIpRes.data?.ip ?? null,
+        device_lat: deviceIp.lat,
+        device_long: deviceIp.long,
+      };
+
+      const facebookSignupRes = await facebookSingupAPI(payload);
+
+      console.log("facebookSignupRes: ", facebookSignupRes);
+
+      if (facebookSignupRes.status === 201) {
+        toast.success(facebookSignupRes.message);
+        router.replace("/dashboard");
+      } else {
+        toast.error(facebookSignupRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    }
   };
 
   // Sign up with linked in
   const handleSignInWithLinkedIn = () => {
-    const linkedInSignInUrl = new URLSearchParams({
+    const linkedUrlParameters = new URLSearchParams({
       response_type: "code",
       client_id: process.env.NEXT_PUBLIC_LINKED_IN_APP_ID!,
-      redirect_uri: process.env.NEXT_PUBLIC_LINKEDIN_REDIRECT_URI!,
+      redirect_uri: process.env.NEXT_PUBLIC_LINKEDIN_SINGUP_REDIRECT_URI!,
       scope: "openid profile email",
     });
 
-    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${linkedInSignInUrl}`;
+    window.location.href = `https://www.linkedin.com/oauth/v2/authorization?${linkedUrlParameters}`;
+  };
+
+  const closeAlreadyHaveAccDialog = () => {
+    setAlreadyHaveAccount(false);
+  };
+
+  const handleOneClickLogin = () => {
+    closeAlreadyHaveAccDialog();
+    console.log("One click login");
+
+    toast.success("You have logged in successfully.");
   };
 
   return (
@@ -121,7 +315,7 @@ const SignUp = () => {
           Sign Up
         </p>
 
-        <form className="w-full" onSubmit={signupSubmit(handleSignUp)}>
+        <form className="w-full" onSubmit={signupSubmit(handleEmailSignUp)}>
           {/* Sign up with */}
           <ul className="flex flex-col gap-3">
             {/* Google */}
@@ -130,7 +324,7 @@ const SignUp = () => {
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
               hover:bg-slate-100 rounded-lg cursor-pointer"
-                onClick={handleGoogleLogin}
+                onClick={handleGoogleSignup}
               >
                 <Image
                   src={googleLogo}
@@ -149,7 +343,7 @@ const SignUp = () => {
                 type="button"
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
               hover:bg-slate-100 rounded-lg cursor-pointer"
-                onClick={loginWithFacebook}
+                onClick={handleFacebookSignup}
               >
                 <Image
                   src={facebookLogo}
@@ -181,7 +375,7 @@ const SignUp = () => {
           <hr className="my-4 w-full h-px border-none bg-slate-300" />
 
           {/* Username */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_username"
               control={signupControl}
@@ -206,7 +400,7 @@ const SignUp = () => {
           </div>
 
           {/* Birthdate */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_dob"
               control={signupControl}
@@ -234,7 +428,7 @@ const SignUp = () => {
           </div>
 
           {/* Gender */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_gender"
               control={signupControl}
@@ -272,8 +466,33 @@ const SignUp = () => {
             />
           </div>
 
+          {/* Mobile number */}
+          <div className="mb-2.5">
+            <Controller
+              name="signup_mobile"
+              control={signupControl}
+              render={({ field: { value, onChange, name } }) => (
+                <TextField
+                  label="Mobile No."
+                  placeholder="Enter mobile "
+                  name={name}
+                  value={value}
+                  onChange={onChange}
+                  variant="outlined"
+                  className="w-full"
+                  error={signupErrors.signup_mobile?.message ? true : false}
+                  helperText={
+                    signupErrors.signup_mobile?.message
+                      ? `${signupErrors.signup_mobile.message}`
+                      : " "
+                  }
+                />
+              )}
+            />
+          </div>
+
           {/* Email */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_email"
               control={signupControl}
@@ -298,7 +517,7 @@ const SignUp = () => {
           </div>
 
           {/* Sign up Password */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_password"
               control={signupControl}
@@ -339,7 +558,7 @@ const SignUp = () => {
           </div>
 
           {/* Sign up Confirm Password */}
-          <div className="mb-2">
+          <div className="mb-2.5">
             <Controller
               name="signup_cpassword"
               control={signupControl}
@@ -385,8 +604,19 @@ const SignUp = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg"
+            disabled={isLoading}
+            className="w-full py-3 bg-primary disabled:bg-slate-200 cursor-pointer disabled:cursor-default text-white disabled:text-slate-500 font-semibold text-lg rounded-lg flex justify-center items-center gap-2"
           >
+            {isLoading && (
+              <CircularProgress
+                size={24}
+                sx={{
+                  "&.MuiCircularProgress-root": {
+                    color: "#62748e",
+                  },
+                }}
+              />
+            )}
             Sign up with Email
           </button>
 
@@ -397,7 +627,7 @@ const SignUp = () => {
               type="button"
               className="font-medium underline text-primary cursor-pointer"
               onClick={() => {
-                navigate.push("/");
+                router.push("/login");
                 signupClearErrors();
               }}
             >
@@ -434,6 +664,54 @@ const SignUp = () => {
           </div>
         </div>
       </div>
+
+      {/* Already have account dialog */}
+      <Dialog
+        open={alreadyHaveAccount}
+        onClose={closeAlreadyHaveAccDialog}
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "10px",
+          },
+        }}
+      >
+        <div className="py-10 px-18 w-md bg-white h-[calc(100vh-32px)] max-h-[calc(100vh-32px)]">
+          <button
+            type="button"
+            className="absolute top-4 right-4 p-1.5 bg-slate-300 rounded-full cursor-pointer"
+            onClick={closeAlreadyHaveAccDialog}
+          >
+            <IoMdClose className="text-xl" />
+          </button>
+          <p className="text-2xl font-semibold text-center mb-4">
+            Choose a account to continue
+          </p>
+          <p className="text-sm text-center">
+            your email <b>{"abc@gmail.com"}</b> is connected to :
+          </p>
+          <ul className="py-5 flex flex-col items-center">
+            <li className="w-full">
+              <button
+                type="button"
+                className="w-full flex justify-between items-center cursor-pointer p-4 border-b border-b-slate-300"
+                onClick={handleOneClickLogin}
+              >
+                <div className="flex items-center gap-4">
+                  <Avatar
+                    alt="Username"
+                    src={"/userDefaultPic.jpg"}
+                    sx={{ width: 30, height: 30 }}
+                  />
+                  <p className="text-sm">User name</p>
+                </div>
+                <p className="p-1.5">
+                  <GoArrowRight className="text-xl" />
+                </p>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </Dialog>
     </div>
   );
 };

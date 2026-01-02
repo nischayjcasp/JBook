@@ -20,7 +20,7 @@ import {
   ForgotPassSchemaType,
   loginSchema,
   LoginSchemaType,
-} from "@/src/lib/schemas/auth.schema";
+} from "@/lib/schemas/auth.schema";
 import { useRouter } from "next/navigation";
 
 const ForgetPassword = () => {
@@ -125,7 +125,7 @@ const ForgetPassword = () => {
                 className="font-medium underline text-primary cursor-pointer"
                 onClick={() => {
                   forogtPassReset();
-                  navigate.push("/");
+                  navigate.push("/login");
                 }}
               >
                 Go to login

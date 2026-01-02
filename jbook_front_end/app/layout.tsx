@@ -5,9 +5,9 @@ import "./globals.css";
 import { Slide, ToastContainer } from "react-toastify";
 import Script from "next/script";
 import { Provider, useSelector } from "react-redux";
-import { ReduxStore, RootState } from "@/src/redux/store";
-import MainLoaderWrapper from "@/src/components/loaders/MainLoaderWrapper";
-import BackgrounProcess from "@/src/components/merger/BackgrounProcess";
+import { ReduxStore, RootState } from "@/redux/store";
+import MainLoaderWrapper from "@/components/loaders/MainLoaderWrapper";
+import BackgrounProcess from "@/components/merger/BackgrounProcess";
 
 // export const metadata: Metadata = {
 //   title: "JBook | Jcasp Technologies",

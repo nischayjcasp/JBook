@@ -17,11 +17,11 @@ import { VisuallyHiddenInput } from "@/app/dashboard/layout";
 import {
   addPostSchema,
   userPhotoSupportedFormats,
-} from "@/src/lib/schemas/settings.schema";
+} from "@/lib/schemas/settings.schema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { toast } from "react-toastify";
 import { useSelector } from "react-redux";
-import { RootState } from "@/src/redux/store";
+import { RootState } from "@/redux/store";
 
 interface ViewPostProps {
   postId: string;
@@ -119,7 +119,7 @@ const ViewPost = ({ data }: { data: ViewPostProps }) => {
           <button
             type="button"
             disabled={isMerging}
-            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-primary text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-primary/90 hover:bg-primary text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
             onClick={() => {
               openEditDialog();
             }}
@@ -130,7 +130,7 @@ const ViewPost = ({ data }: { data: ViewPostProps }) => {
           <button
             disabled={isMerging}
             type="button"
-            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-red-600 text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-red-500 hover:bg-red-600 text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
             onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
               event.preventDefault();
               toast.success("Post deleted successfully.");

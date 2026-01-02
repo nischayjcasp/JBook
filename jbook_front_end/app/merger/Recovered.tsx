@@ -1,4 +1,4 @@
-import { AppDispatch, RootState } from "@/src/redux/store";
+import { AppDispatch, RootState } from "@/redux/store";
 import React from "react";
 import { FaCheckCircle } from "react-icons/fa";
 import { FaArrowLeftLong } from "react-icons/fa6";
@@ -14,8 +14,8 @@ import defaultImage from "@/app/assets/images/randomUser.jpeg";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useState } from "react";
-import MergerPostCard from "@/src/components/merger/MergerPostCard";
-import { mergerReset } from "@/src/redux/slices/mergerSlice";
+import MergerPostCard from "@/components/merger/MergerPostCard";
+import { mergerReset } from "@/redux/slices/mergerSlice";
 import { useRouter } from "next/navigation";
 
 const Recovered = ({ active }: { active: boolean }) => {
@@ -74,14 +74,14 @@ const Recovered = ({ active }: { active: boolean }) => {
                 <div className="bg-slate-500 text-white p-2 rounded-lg">
                   <p className="font-semibold">Account :</p>
                 </div>
-                <p>{primaryAccData.email ?? "abc1@gmail.com"}</p>
+                <p>{primaryAccData.email ?? ""}</p>
               </div>
               <div>AND</div>
               <div className="flex items-center gap-3 border border-slate-500 p-4 rounded-lg">
                 <div className="p-2 bg-slate-500 text-white rounded-lg">
                   <p className="font-semibold">Account :</p>
                 </div>
-                <p>{"abc2@gmail.com"}</p>
+                <p>{secondaryAccData.email ?? ""}</p>
               </div>
             </div>
           </div>

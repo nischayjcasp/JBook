@@ -1,4 +1,4 @@
-import { AppDispatch, ReduxStore, RootState } from "@/src/redux/store";
+import { AppDispatch, ReduxStore, RootState } from "@/redux/store";
 import {
   mergerNext,
   mergerPrev,
@@ -6,7 +6,7 @@ import {
   startMerging,
   stopMerging,
   updateMergingProcess,
-} from "@/src/redux/slices/mergerSlice";
+} from "@/redux/slices/mergerSlice";
 import { useRouter } from "next/navigation";
 import { FaArrowLeftLong } from "react-icons/fa6";
 import { useDispatch, useSelector } from "react-redux";
@@ -23,7 +23,7 @@ import defaultImage from "@/app/assets/images/randomUser.jpeg";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import { useRef, useState } from "react";
-import MergerPostCard from "@/src/components/merger/MergerPostCard";
+import MergerPostCard from "@/components/merger/MergerPostCard";
 
 const Merger_2 = ({ active }: { active: boolean }) => {
   const router = useRouter();
@@ -111,7 +111,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <div className="bg-primary text-white p-2 rounded-lg">
                 <p className="font-semibold">Primary :</p>
               </div>
-              <p>{primaryAccData.email ?? "abc1@gmail.com"}</p>
+              <p>{primaryAccData.email ?? " "}</p>
             </div>
             <div>
               <FaArrowLeftLong className="text-2xl" />
@@ -120,7 +120,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <div className="p-2 bg-slate-500 text-white rounded-lg">
                 <p className="font-semibold">Secondary :</p>
               </div>
-              <p>{"abc2@gmail.com"}</p>
+              <p>{secondaryAccData.email ?? " "}</p>
             </div>
           </div>
         </div>
@@ -152,10 +152,19 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               </AccordionSummary>
               <AccordionDetails>
                 {/* Primary Account Info */}
-
-                <div className="w-full flex py-3">
-                  <p className="w-1/2 text-center font-semibold">Primary</p>
-                  <p className="w-1/2 text-center font-semibold">Secondary</p>
+                <div className="w-full flex py-3 mb-3">
+                  <p className="w-1/2 text-center font-semibold">
+                    Primary&nbsp;
+                    <span className="font-normal text-slate-500">
+                      ({primaryAccData.email ?? " "})
+                    </span>
+                  </p>
+                  <p className="w-1/2 text-center font-semibold">
+                    Secondary&nbsp;
+                    <span className="font-normal text-slate-500">
+                      ({secondaryAccData.email ?? " "})
+                    </span>
+                  </p>
                 </div>
 
                 {/* User photo */}
@@ -570,10 +579,19 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <AccordionDetails>
                 <div className="w-full flex flex-col">
                   {/* Primary Account Info */}
-
-                  <div className="w-full flex py-3">
-                    <p className="w-1/2 text-center font-semibold">Primary</p>
-                    <p className="w-1/2 text-center font-semibold">Secondary</p>
+                  <div className="w-full flex py-3 mb-3">
+                    <p className="w-1/2 text-center font-semibold">
+                      Primary&nbsp;
+                      <span className="font-normal text-slate-500">
+                        ({primaryAccData.email ?? " "})
+                      </span>
+                    </p>
+                    <p className="w-1/2 text-center font-semibold">
+                      Secondary&nbsp;
+                      <span className="font-normal text-slate-500">
+                        ({secondaryAccData.email ?? " "})
+                      </span>
+                    </p>
                   </div>
 
                   {/* User Posts */}
@@ -688,10 +706,22 @@ const Merger_2 = ({ active }: { active: boolean }) => {
                       const key = `userPosts_${inx + 1}`;
                       return (
                         <li key={`post-${inx}`} className="flex items-center">
-                          <p className="w-1/2 font-medium">
-                            {inx % 2 == 0
-                              ? "From primary account :"
-                              : "From secondary account :"}
+                          <p className="w-1/2 font-medium flex gap-2">
+                            {inx % 2 == 0 ? (
+                              <>
+                                <span>From primary account</span>
+                                <span className="font-normal text-slate-500">
+                                  ({primaryAccData.email ?? " "})
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span>From secondary account</span>
+                                <span className="font-normal text-slate-500">
+                                  ({secondaryAccData.email ?? " "})
+                                </span>
+                              </>
+                            )}
                           </p>
                           <div className="w-1/2">
                             <MergerPostCard
