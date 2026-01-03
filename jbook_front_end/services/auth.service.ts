@@ -3,8 +3,10 @@ import {
   EmailLoginPayloadType,
   EmailSignupPayloadType,
   FacebookSignupPayload,
+  FotgotPasswordPayload,
   GoogleSignupPayload,
   LoginApiRes,
+  ResetPasswordPayload,
 } from "./auth.type";
 import axios from "axios";
 
@@ -158,6 +160,25 @@ export const verifySessionAPI = (token: string) => {
   });
 };
 
-export const refreshSessionAPI = () => {
-  return API.get<{ status: number; message: string }>("/auth/refresh/token");
+export const refreshSessionAPI = (session_id: string) => {
+  return axios.get<{ status: number; message: string }>(
+    `${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/refresh/token`,
+    {
+      headers: {
+        Cookie: `session_id=${session_id}`,
+      },
+    }
+  );
+};
+
+export const forgotPasswordAPI = (
+  forgotPassPayload: FotgotPasswordPayload
+): Promise<LoginApiRes> => {
+  return API.post("/auth/forgot/password", forgotPassPayload);
+};
+
+export const resetPasswordAPI = (
+  resetPassPayload: ResetPasswordPayload
+): Promise<LoginApiRes> => {
+  return API.post("/auth/reset/password", resetPassPayload);
 };

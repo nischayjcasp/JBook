@@ -1,5 +1,6 @@
 import { plainToInstance } from "class-transformer";
 import {
+  IsBoolean,
   IsEnum,
   IsNotEmpty,
   IsNumber,
@@ -85,6 +86,38 @@ class EnvVariables {
   @IsString()
   @IsNotEmpty()
   LINKEDIN_SINGUP_REDIRECT_URI: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_SMTP_SERVICE: string;
+
+  @IsNumber()
+  @Min(0)
+  @Max(65535)
+  GOOGLE_SMTP_PORT: number;
+
+  @IsBoolean()
+  GOOGLE_SMTP_SECURE: boolean;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_USER: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_MAIL_PASSWORD: string;
+
+  @IsString()
+  @IsNotEmpty()
+  GOOGLE_FROM_EMAIL: string;
+
+  @IsString()
+  @IsNotEmpty()
+  RESET_PASSSWORD_SECRET: string;
+
+  @IsString()
+  @IsNotEmpty()
+  RESET_PASSSWORD_EXPIRY: string;
 }
 
 // Validation function

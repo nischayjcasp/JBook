@@ -12,14 +12,21 @@ export async function middleware(req: NextRequest) {
   console.log("path: ", path);
 
   //   Check for protectedt routes
-  if (
-    path.startsWith("/dashboard") ||
-    path.startsWith("/merger") ||
-    path.startsWith("/resetpass")
-  ) {
+  if (path.startsWith("/dashboard") || path.startsWith("/merger")) {
     isProtected = true;
   } else {
     isProtected = false;
+  }
+
+  if (path.startsWith("/resetpass")) {
+    const searchParams = req.nextUrl.searchParams;
+    const resetCode = searchParams.get("code");
+
+    if (resetCode) {
+      return NextResponse.next();
+    } else {
+      return NextResponse.redirect(new URL("/forget", req.url));
+    }
   }
 
   if (MERGER_SESSION) {
@@ -30,17 +37,14 @@ export async function middleware(req: NextRequest) {
       console.log("Not Authenticated");
 
       // Check if session expired
-      const isRefreshed = await refreshSession();
+      let isRefreshed = await refreshSession(MERGER_SESSION);
+
+      console.log("isRefreshed: ", isRefreshed);
 
       if (isProtected && !isRefreshed) {
         return NextResponse.redirect(new URL("/login", req.url));
       } else {
-        console.log(
-          "Old access token: ",
-          MERGER_ACCESS_TOKEN,
-          "Token refreshed - isRefreshed: ",
-          isRefreshed
-        );
+        isRefreshed = false;
         return NextResponse.next();
       }
     } else {

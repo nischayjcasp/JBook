@@ -40,7 +40,8 @@ export default function RootLayout({
         {/* Load Google Identity Services */}
         <Script
           src="https://accounts.google.com/gsi/client"
-          strategy="afterInteractive"
+          // strategy="afterInteractive"
+          strategy="beforeInteractive"
         />
 
         {/* Facebook login script */}

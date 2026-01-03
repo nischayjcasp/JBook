@@ -108,8 +108,8 @@ const Login = () => {
   } = useForm<LoginSchemaType>({
     resolver: yupResolver(loginSchema),
     defaultValues: {
-      login_email: "ram4901@gmail.com",
-      login_password: "Ram@@4901",
+      login_email: "",
+      login_password: "",
     },
   });
 
@@ -126,7 +126,6 @@ const Login = () => {
       const payload: EmailLoginPayloadType = {
         login_email: data.login_email,
         login_password: data.login_password,
-        device_id,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
         device_lat: deviceIp.lat,
@@ -155,8 +154,7 @@ const Login = () => {
   //Login with google
   const [googleClient, setGoogleClient] = useState<any>(null);
 
-  // Set Google client
-  useEffect(() => {
+  const setGoogleClientFunc = () => {
     if (window.google) {
       const client = window.google.accounts.oauth2.initCodeClient({
         client_id: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID,
@@ -165,7 +163,14 @@ const Login = () => {
       });
 
       setGoogleClient(client);
+    } else {
+      console.log("No window.google");
     }
+  };
+
+  // Set Google client
+  useEffect(() => {
+    setGoogleClientFunc();
   }, []);
 
   const handleGoogleLoginCallback = async (response: any) => {
@@ -205,7 +210,11 @@ const Login = () => {
   };
 
   const handleGoogleLogin = () => {
-    if (!googleClient) return;
+    if (!googleClient) {
+      console.log("No google client!", googleClient);
+      setGoogleClientFunc();
+      toast.error("Google client no available, please refresh page!");
+    }
     googleClient.requestCode();
   };
 

@@ -8,6 +8,9 @@ import { JwtModule } from "@nestjs/jwt";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { SessionModule } from "./modules/session/session.module";
 import { validate } from "./config/env.validation";
+import { EmailService } from "./modules/email/email.service";
+import { EmailModule } from "./modules/email/email.module";
+import { MailerModule } from "@nestjs-modules/mailer";
 
 @Module({
   imports: [
@@ -33,11 +36,30 @@ import { validate } from "./config/env.validation";
         logging: config.get("APP_ENV") !== "production",
       }),
     }),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        transport: {
+          service: config.get("GOOGLE_SMTP_SERVICE"),
+          // port: config.get("GOOGLE_SMTP_PORT"),
+          // secure: config.get("GOOGLE_SMTP_SECURE"),
+          auth: {
+            user: config.get("GOOGLE_USER"),
+            pass: config.get("GOOGLE_MAIL_PASSWORD"),
+          },
+        },
+        defaults: {
+          from: "Merger App <nischay.jcasp@protonmail.com>",
+        },
+      }),
+    }),
     AuthModule,
     UsersModule,
     SessionModule,
+    EmailModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, EmailService],
 })
 export class AppModule {}

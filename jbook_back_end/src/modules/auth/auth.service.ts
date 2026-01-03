@@ -16,6 +16,9 @@ import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 import { GoogleTokenResType, GoogleUserInfoType } from "./auth.type";
 import { SignUpWithGoogleDto } from "./dto/signUpWithGoogle.dto";
 import { UserSession } from "../session/entities/user_session.entity";
+import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
+import { EmailService } from "../email/email.service";
+import { ResetPasswordDto } from "./dto/resetPassword.dro";
 
 @Injectable()
 export class AuthService {
@@ -25,7 +28,8 @@ export class AuthService {
 
     @InjectRepository(UserSession)
     private readonly sessionRepo: Repository<UserSession>,
-    private readonly sessionService: SessionService
+    private readonly sessionService: SessionService,
+    private readonly emailService: EmailService
   ) {}
 
   //<============== Login ==============>
@@ -882,6 +886,83 @@ export class AuthService {
         status: 500,
         message: "Session expired, please login again!",
       };
+    }
+  }
+
+  async forgotPassword(
+    forgotPasswordDto: ForgotPasswordDto,
+    userAgent: string,
+    device_id: string
+  ) {
+    try {
+      // finduser in DB
+      const finduser = await this.usersRepo.findOne({
+        where: {
+          email: forgotPasswordDto.forgot_pass_email,
+        },
+      });
+
+      if (!finduser) {
+        return {
+          status: 400,
+          message: "User is not registered!",
+        };
+      }
+
+      console.log("finduser: ", finduser, userAgent, device_id);
+
+      // Sent reset password email
+      const emailResp = await this.emailService.sentResetPasswordLink({
+        address_to: forgotPasswordDto.forgot_pass_email,
+        user_id: finduser.id,
+      });
+
+      console.log("emailResp: ", emailResp);
+
+      if (emailResp.status === 200) {
+        return {
+          status: 200,
+          message: `Reset link sent to ${forgotPasswordDto.forgot_pass_email}`,
+        };
+      } else {
+        return emailResp;
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      return {
+        status: 500,
+        message: error.message,
+      };
+    }
+  }
+
+  async resetPassword(
+    resetPasswordDto: ResetPasswordDto,
+    userAgent: string,
+    device_id: string
+  ) {
+    try {
+      // finduser in DB
+      // const finduser = await this.usersRepo.findOne({
+      //   where: {
+      //     email: "",
+      //   },
+      // });
+      // if (!finduser) {
+      //   return {
+      //     status: 400,
+      //     message: "User is not registered!",
+      //   };
+      // }
+      // console.log("finduser: ", finduser, userAgent, device_id);
+      // Sent reset password successful email
+      // const emailResp = await this.emailService.sentResetPasswordLink({
+      //   address_to: forgotPasswordDto.forgot_pass_email,
+      // });
+      // console.log("emailResp: ", emailResp);
+      // return emailResp;
+    } catch (error) {
+      console.log("Error: ", error);
     }
   }
 }

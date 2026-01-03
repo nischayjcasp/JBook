@@ -4,28 +4,25 @@ import Image from "next/image";
 import jbookLogo from "@/app/favicon.ico";
 import jcaspLogo from "@/app/assets/logos/imgi_4_JCasp-logo-homepage.svg";
 import { FaQuoteLeft, FaQuoteRight } from "react-icons/fa";
-import googleLogo from "@/app/assets/logos/google_logo.svg";
-import facebookLogo from "@/app/assets/logos/fb_logo.svg";
-import { FaLinkedin } from "react-icons/fa";
 import { Controller, useForm } from "react-hook-form";
 import TextField from "@mui/material/TextField";
-import Link from "next/link";
 import { useState } from "react";
-import InputAdornment from "@mui/material/InputAdornment";
-import Visibility from "@mui/icons-material/Visibility";
-import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
   forgotPassSchema,
   ForgotPassSchemaType,
-  loginSchema,
-  LoginSchemaType,
 } from "@/lib/schemas/auth.schema";
 import { useRouter } from "next/navigation";
+import { FotgotPasswordPayload } from "@/services/auth.type";
+import { forgotPasswordAPI, getDeivceIpAPI } from "@/services/auth.service";
+import { DeviceLocation } from "@/util/common.util";
+import { toast } from "react-toastify";
+import { CircularProgress } from "@mui/material";
 
 const ForgetPassword = () => {
   const navigate = useRouter();
   const [isResetLinkSent, setIsResetLinkSent] = useState<boolean>(false);
+  const [isLoading, setLoading] = useState<boolean>(false);
 
   // Forgot password Form
   const {
@@ -36,19 +33,53 @@ const ForgetPassword = () => {
     formState: { errors: forogtPassErrors },
   } = useForm<ForgotPassSchemaType>({
     resolver: yupResolver(forgotPassSchema),
+    defaultValues: {
+      forgot_pass_email: "",
+    },
   });
 
-  const handleForogtPass = (data: ForgotPassSchemaType) => {
+  const handleForogtPass = async (data: ForgotPassSchemaType) => {
     console.log("Data: ", data);
-    if (data.forgot_pass_email !== "ram@gmail.com") {
-      forogtPassSetError("forgot_pass_email", {
-        type: "custom",
-        message: "User do not exist",
-      });
-    } else {
-      setIsResetLinkSent(true);
-      // Link on email: https://app.todoist.com/auth/password?reset_code=56364218_AKbxdAKUKSkWnlporNys7wD6
+    setLoading(true);
+
+    try {
+      //Sign up payload
+      const deviceIpRes = await getDeivceIpAPI();
+      const deviceIp = await DeviceLocation();
+
+      const payload: FotgotPasswordPayload = {
+        forgot_pass_email: data.forgot_pass_email,
+        device_ip: deviceIpRes.data?.ip ?? null,
+        device_lat: deviceIp.lat,
+        device_long: deviceIp.long,
+      };
+
+      const facebookSignupRes = await forgotPasswordAPI(payload);
+
+      console.log("facebookSignupRes: ", facebookSignupRes);
+
+      if (facebookSignupRes.status === 200) {
+        toast.success(facebookSignupRes.message);
+      } else {
+        toast.error(facebookSignupRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
     }
+
+    // if (data.forgot_pass_email !== "ram@gmail.com") {
+    //   forogtPassSetError("forgot_pass_email", {
+    //     type: "custom",
+    //     message: "User do not exist",
+    //   });
+    // } else {
+    //   setIsResetLinkSent(true);
+    //   // Link on email: https://app.todoist.com/auth/password?reset_code=56364218_AKbxdAKUKSkWnlporNys7wD6
+    // }
   };
 
   return (
@@ -90,6 +121,7 @@ const ForgetPassword = () => {
                         placeholder="Enter email "
                         name={name}
                         value={value}
+                        disabled={isLoading}
                         onChange={onChange}
                         variant="outlined"
                         className="w-full"
@@ -110,8 +142,19 @@ const ForgetPassword = () => {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg"
+                  disabled={isLoading}
+                  className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 flex justify-center items-center gap-2"
                 >
+                  {isLoading && (
+                    <CircularProgress
+                      size={24}
+                      sx={{
+                        "&.MuiCircularProgress-root": {
+                          color: "#62748e",
+                        },
+                      }}
+                    />
+                  )}
                   Reset my password
                 </button>
               </>

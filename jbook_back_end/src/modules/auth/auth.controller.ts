@@ -8,12 +8,15 @@ import {
   Delete,
   Res,
   Req,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { AuthService } from "./auth.service";
 import { LoginWithEmailDto } from "./dto/loginWithEmail.dto";
 import { SignUpWithEmailDto } from "./dto/signUpWithEmail.dto";
 import type { Request, Response } from "express";
 import { SignUpWithGoogleDto } from "./dto/signUpWithGoogle.dto";
+import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
+import { ResetPasswordDto } from "./dto/resetPassword.dro";
 
 @Controller("auth")
 export class AuthController {
@@ -500,45 +503,63 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const session_id: string = req.cookies["MERGER_SESSION"];
+    const session_id = req.cookies["session_id"];
 
     console.log("session_id: ", session_id);
+
+    if (!session_id) {
+      return new UnauthorizedException(
+        "No active session, please login again!"
+      );
+    }
 
     const refreshTokenRes = await this.authService.refreshToken(session_id);
 
     console.log("refreshTokenRes: ", refreshTokenRes);
 
     if (refreshTokenRes.status === 200) {
-      res.cookie("MERGER_ACCESS_TOKEN", refreshTokenRes.access_token, {
-        httpOnly: true,
-        secure: process.env.APP_ENV === "production",
-        sameSite: "strict",
-        path: "/",
-        expires: refreshTokenRes.access_token_exp,
-      });
+      res.header("Set-Cookie", [
+        `MERGER_ACCESS_TOKEN=${refreshTokenRes.access_token}; Expire:${refreshTokenRes.access_token_exp?.toUTCString()}; HttpOnly; ${process.env.APP_ENV === "production" ? "Secure;" : ""} Path:/; SameSite=Strict`,
+      ]);
 
       res.json({
         status: 200,
         message: "Session renewed successfully.",
       });
     } else {
-      // res.cookie("MERGER_ACCESS_TOKEN", "", {
-      //   httpOnly: true,
-      //   secure: process.env.APP_ENV === "production",
-      //   sameSite: "strict",
-      //   path: "/",
-      //   maxAge: 0,
-      // });
-
-      // res.cookie("MERGER_SESSION", "", {
-      //   httpOnly: true,
-      //   secure: process.env.APP_ENV === "production",
-      //   sameSite: "strict",
-      //   path: "/",
-      //   maxAge: 0,
-      // });
+      res.header("Set-Cookie", [`MERGER_ACCESS_TOKEN='';MERGER_SESSION=''`]);
 
       res.json(refreshTokenRes);
     }
+  }
+
+  @Post("forgot/password")
+  async forgotPasswordCntr(
+    @Body() forgotPasswordDto: ForgotPasswordDto,
+    @Req() req: Request
+  ) {
+    const userAgent = req.headers["user-agent"];
+    const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+
+    return await this.authService.forgotPassword(
+      forgotPasswordDto,
+      userAgent as string,
+      device_id
+    );
+  }
+
+  @Post("reset/password")
+  async resetPasswordCntr(
+    @Body() resetPasswordDto: ResetPasswordDto,
+    @Req() req: Request
+  ) {
+    const userAgent = req.headers["user-agent"];
+    const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+
+    return await this.authService.resetPassword(
+      resetPasswordDto,
+      userAgent as string,
+      device_id
+    );
   }
 }

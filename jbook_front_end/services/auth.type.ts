@@ -1,7 +1,6 @@
 export interface EmailLoginPayloadType {
   login_email: string;
   login_password: string;
-  device_id: string;
   user_agent: string;
   device_ip: string | null;
   device_lat: number | null;
@@ -45,6 +44,21 @@ export interface FacebookSignupPayload {
 
 export interface LinkedInSignupPayload {
   authCode: string;
+  device_ip: string | null;
+  device_lat: number | null;
+  device_long: number | null;
+}
+
+export interface FotgotPasswordPayload {
+  forgot_pass_email: string;
+  device_ip: string | null;
+  device_lat: number | null;
+  device_long: number | null;
+}
+
+export interface ResetPasswordPayload {
+  new_pass: string;
+  resetCode: string;
   device_ip: string | null;
   device_lat: number | null;
   device_long: number | null;

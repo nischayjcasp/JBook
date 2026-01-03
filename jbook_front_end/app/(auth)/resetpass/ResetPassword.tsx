@@ -16,16 +16,19 @@ import {
   ResetPassSchemaType,
 } from "@/lib/schemas/auth.schema";
 import { useRouter, useSearchParams } from "next/navigation";
+import { CircularProgress } from "@mui/material";
+import { getDeivceIpAPI, resetPasswordAPI } from "@/services/auth.service";
+import { DeviceLocation } from "@/util/common.util";
+import { ResetPasswordPayload } from "@/services/auth.type";
+import { toast } from "react-toastify";
 
 const ResetPassword = () => {
-  const navigate = useRouter();
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const resetCode = searchParams.get("code");
   const [resetPassEye, setResetPassEye] = useState<boolean>(false);
   const [resetCPassEye, setResetCPassEye] = useState<boolean>(false);
-
-  useEffect(() => {
-    console.log("Code: ", searchParams.get("code"));
-  }, []);
+  const [isLoading, setLoading] = useState<boolean>(false);
 
   // Password reset Form
   const {
@@ -35,10 +38,53 @@ const ResetPassword = () => {
     formState: { errors: resetPassErrors },
   } = useForm<ResetPassSchemaType>({
     resolver: yupResolver(resetPassSchema),
+    defaultValues: {
+      reset_password: " ",
+      reset_cpassword: " ",
+    },
   });
 
-  const handleResetPass = (data: ResetPassSchemaType) => {
+  const handleResetPass = async (data: ResetPassSchemaType) => {
     console.log(data);
+    console.log("Data: ", data);
+
+    if (!resetCode) {
+      toast.error("Unauthorised request!");
+      router.replace("/forget");
+      return null;
+    }
+
+    setLoading(true);
+
+    try {
+      //Reset Password payload
+      const deviceIpRes = await getDeivceIpAPI();
+      const deviceIp = await DeviceLocation();
+
+      const payload: ResetPasswordPayload = {
+        new_pass: data.reset_password,
+        resetCode,
+        device_ip: deviceIpRes.data?.ip ?? null,
+        device_lat: deviceIp.lat,
+        device_long: deviceIp.long,
+      };
+
+      const resetPasswordRes = await resetPasswordAPI(payload);
+
+      console.log("resetPasswordRes: ", resetPasswordRes);
+
+      if (resetPasswordRes.status === 200) {
+        toast.success(resetPasswordRes.message);
+      } else {
+        toast.error(resetPasswordRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -71,6 +117,7 @@ const ResetPassword = () => {
               render={({ field: { value, onChange, name } }) => (
                 <TextField
                   type={resetPassEye ? "text" : "password"}
+                  disabled={isLoading}
                   label="New Password"
                   placeholder="Enter password "
                   name={name}
@@ -112,6 +159,7 @@ const ResetPassword = () => {
               render={({ field: { value, onChange, name } }) => (
                 <TextField
                   type={resetCPassEye ? "text" : "password"}
+                  disabled={isLoading}
                   label="Confirm New Password"
                   placeholder="Enter confirm password"
                   name={name}
@@ -149,8 +197,19 @@ const ResetPassword = () => {
 
           <button
             type="submit"
-            className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg"
+            disabled={isLoading}
+            className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 flex justify-center items-center gap-2"
           >
+            {isLoading && (
+              <CircularProgress
+                size={24}
+                sx={{
+                  "&.MuiCircularProgress-root": {
+                    color: "#62748e",
+                  },
+                }}
+              />
+            )}
             Reset my password
           </button>
 

@@ -53,6 +53,9 @@ const SignUp = () => {
   const [signUpCPassEye, setSignUpCPassEye] = useState<boolean>(false);
   const [alreadyHaveAccount, setAlreadyHaveAccount] = useState<boolean>(false);
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isLoadingGoogle, setLoadingGoogle] = useState<boolean>(false);
+  const [isLoadingFacebook, setLoadingFacebook] = useState<boolean>(false);
+  const [isLoadingLinkedIn, setLoadingLinkedIn] = useState<boolean>(false);
   const randomNum = Math.floor(Math.random() * 10000);
   let isSignupDone = useRef<boolean>(false);
 
@@ -62,6 +65,7 @@ const SignUp = () => {
 
   useEffect(() => {
     const handleLinkedSignup = async (code: string) => {
+      setLoadingLinkedIn(true);
       try {
         //Sign up payload
         const deviceIpRes = await getDeivceIpAPI();
@@ -82,6 +86,7 @@ const SignUp = () => {
         if (linkedInSignupRes.status === 201) {
           toast.success(linkedInSignupRes.message);
           router.replace("/dashboard");
+          setLoadingLinkedIn(false);
         } else {
           toast.error(linkedInSignupRes.message);
         }
@@ -92,6 +97,7 @@ const SignUp = () => {
         redirect("/signup");
       } finally {
         isSignupDone.current = false;
+        setLoadingLinkedIn(false);
       }
     };
 
@@ -185,6 +191,7 @@ const SignUp = () => {
 
   const handleGoogleSignupCallback = async (response: any) => {
     console.log("Code: ", response.code);
+    setLoadingGoogle(true);
     try {
       //Sign up payload
       const deviceIpRes = await getDeivceIpAPI();
@@ -205,6 +212,7 @@ const SignUp = () => {
       if (googleSignupRes.status === 201) {
         toast.success(googleSignupRes.message);
         router.replace("/dashboard");
+        setLoadingGoogle(false);
       } else {
         toast.error(googleSignupRes.message);
       }
@@ -212,6 +220,8 @@ const SignUp = () => {
       console.log("Error: ", error);
       let err = error as { message: string };
       toast.error(err.message);
+    } finally {
+      setLoadingGoogle(false);
     }
   };
 
@@ -238,6 +248,7 @@ const SignUp = () => {
 
   const facebookSignupCallback = async (authResp: any) => {
     console.log("FB Token:", authResp);
+    setLoadingFacebook(true);
     // {
     //   accessToken: "string";
     //   data_access_expiration_time: number;
@@ -268,6 +279,7 @@ const SignUp = () => {
       if (facebookSignupRes.status === 201) {
         toast.success(facebookSignupRes.message);
         router.replace("/dashboard");
+        setLoadingFacebook(false);
       } else {
         toast.error(facebookSignupRes.message);
       }
@@ -275,6 +287,8 @@ const SignUp = () => {
       console.log("Error: ", error);
       let err = error as { message: string };
       toast.error(err.message);
+    } finally {
+      setLoadingFacebook(false);
     }
   };
 
@@ -322,8 +336,9 @@ const SignUp = () => {
             <li>
               <button
                 type="button"
+                disabled={isLoadingGoogle}
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
-              hover:bg-slate-100 rounded-lg cursor-pointer"
+              hover:bg-slate-100 rounded-lg cursor-pointer disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                 onClick={handleGoogleSignup}
               >
                 <Image
@@ -334,6 +349,17 @@ const SignUp = () => {
                 <span className="font-semibold text-lg">
                   Continue with Google
                 </span>
+
+                {isLoadingGoogle && (
+                  <CircularProgress
+                    size={24}
+                    sx={{
+                      "&.MuiCircularProgress-root": {
+                        color: "#62748e",
+                      },
+                    }}
+                  />
+                )}
               </button>
             </li>
 
@@ -341,8 +367,9 @@ const SignUp = () => {
             <li>
               <button
                 type="button"
+                disabled={isLoadingFacebook}
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
-              hover:bg-slate-100 rounded-lg cursor-pointer"
+              hover:bg-slate-100 rounded-lg cursor-pointer disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                 onClick={handleFacebookSignup}
               >
                 <Image
@@ -353,6 +380,17 @@ const SignUp = () => {
                 <span className="font-semibold text-lg">
                   Continue with Facebook
                 </span>
+
+                {isLoadingFacebook && (
+                  <CircularProgress
+                    size={24}
+                    sx={{
+                      "&.MuiCircularProgress-root": {
+                        color: "#62748e",
+                      },
+                    }}
+                  />
+                )}
               </button>
             </li>
 
@@ -360,14 +398,26 @@ const SignUp = () => {
             <li>
               <button
                 type="button"
+                disabled={isLoadingLinkedIn}
                 className="w-full py-3 flex justify-center items-center gap-3 border border-slate-200  hover:border-slate-300 bg-white
-              hover:bg-slate-100 rounded-lg cursor-pointer"
+              hover:bg-slate-100 rounded-lg cursor-pointer disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                 onClick={handleSignInWithLinkedIn}
               >
                 <FaLinkedin className="w-[18px] h-[18px] text-[#2e78b6]" />
                 <span className="font-semibold text-lg">
                   Continue with LinkedIn
                 </span>
+
+                {isLoadingLinkedIn && (
+                  <CircularProgress
+                    size={24}
+                    sx={{
+                      "&.MuiCircularProgress-root": {
+                        color: "#62748e",
+                      },
+                    }}
+                  />
+                )}
               </button>
             </li>
           </ul>

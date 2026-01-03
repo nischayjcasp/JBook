@@ -51,7 +51,7 @@ export class SessionService {
 
       return access_token_decoded ?? null;
     } catch (error) {
-      console.log(error);
+      console.log("verifyAccessToken-Error: ", error);
       return null;
     }
   }
@@ -91,7 +91,47 @@ export class SessionService {
 
       return refresh_token_decoded;
     } catch (error) {
-      console.log(error);
+      console.log("verifyRefreshToken-Error: ", error);
+      return null;
+    }
+  }
+
+  async genearateResetPasswordToken(userId: string) {
+    const RESET_PASSSWORD_SECRET = process.env.RESET_PASSSWORD_SECRET;
+    const RESET_PASSSWORD_EXPIRY = process.env.RESET_PASSSWORD_EXPIRY;
+
+    const reset_pass_token_payload = {
+      sub: userId,
+    };
+
+    const reset_pass_token = await this.jwt.signAsync(
+      reset_pass_token_payload,
+      {
+        secret: RESET_PASSSWORD_SECRET as string,
+        expiresIn: RESET_PASSSWORD_EXPIRY as number | any,
+      }
+    );
+
+    if (!reset_pass_token) {
+      throw new InternalServerErrorException(
+        "Error occured while generating reset password token"
+      );
+    }
+
+    return reset_pass_token;
+  }
+
+  async verifyResetPasswordToken(token: string) {
+    const RESET_PASSSWORD_SECRET = process.env.RESET_PASSSWORD_SECRET;
+
+    try {
+      const reset_pass_token_decoded = await this.jwt.verifyAsync(token, {
+        secret: RESET_PASSSWORD_SECRET as string,
+      });
+
+      return reset_pass_token_decoded ?? null;
+    } catch (error) {
+      console.log("verifyResetPasswordToken-Error: ", error);
       return null;
     }
   }
