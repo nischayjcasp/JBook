@@ -39,8 +39,8 @@ const ResetPassword = () => {
   } = useForm<ResetPassSchemaType>({
     resolver: yupResolver(resetPassSchema),
     defaultValues: {
-      reset_password: " ",
-      reset_cpassword: " ",
+      reset_password: "",
+      reset_cpassword: "",
     },
   });
 
@@ -53,6 +53,8 @@ const ResetPassword = () => {
       router.replace("/forget");
       return null;
     }
+
+    console.log("resetCode: ", resetCode);
 
     setLoading(true);
 
@@ -74,7 +76,14 @@ const ResetPassword = () => {
       console.log("resetPasswordRes: ", resetPasswordRes);
 
       if (resetPasswordRes.status === 200) {
+        resetPassReset();
+        router.replace("/login");
+        toast.error(resetPasswordRes.message);
         toast.success(resetPasswordRes.message);
+      } else if (resetPasswordRes.status === 400) {
+        resetPassReset();
+        router.replace("/forget");
+        toast.error(resetPasswordRes.message);
       } else {
         toast.error(resetPasswordRes.message);
       }

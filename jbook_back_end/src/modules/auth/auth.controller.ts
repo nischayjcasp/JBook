@@ -554,11 +554,15 @@ export class AuthController {
     @Req() req: Request
   ) {
     const userAgent = req.headers["user-agent"];
+    const resetCode = req.headers["authorization"];
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+
+    console.log({ userAgent, resetCode, device_id });
 
     return await this.authService.resetPassword(
       resetPasswordDto,
       userAgent as string,
+      resetCode as string,
       device_id
     );
   }

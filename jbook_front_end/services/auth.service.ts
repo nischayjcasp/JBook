@@ -180,5 +180,18 @@ export const forgotPasswordAPI = (
 export const resetPasswordAPI = (
   resetPassPayload: ResetPasswordPayload
 ): Promise<LoginApiRes> => {
-  return API.post("/auth/reset/password", resetPassPayload);
+  return API.post(
+    "/auth/reset/password",
+    {
+      new_pass: resetPassPayload.new_pass,
+      device_ip: resetPassPayload.device_ip,
+      device_lat: resetPassPayload.device_lat,
+      device_long: resetPassPayload.device_long,
+    },
+    {
+      headers: {
+        Authorization: resetPassPayload.resetCode,
+      },
+    }
+  );
 };

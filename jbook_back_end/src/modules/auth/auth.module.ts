@@ -6,12 +6,15 @@ import { Users } from "../users/entities/user.entity";
 import { SessionModule } from "../session/session.module";
 import { UserSession } from "../session/entities/user_session.entity";
 import { EmailModule } from "../email/email.module";
+import { ResetPasswordLog } from "./entities/resetPassword.entity";
+import { UsersModule } from "../users/users.module";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Users, UserSession]),
+    TypeOrmModule.forFeature([Users, UserSession, ResetPasswordLog]),
     SessionModule,
     EmailModule,
+    UsersModule,
   ],
   controllers: [AuthController],
   providers: [AuthService],

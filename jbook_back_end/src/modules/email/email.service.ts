@@ -8,6 +8,8 @@ import { SessionService } from "../session/session.service";
 import * as bcrypt from "bcrypt";
 import { convert } from "html-to-text";
 import { ResetPasswordLog } from "../auth/entities/resetPassword.entity";
+import { ForgotPasswordDto } from "../auth/dto/forgotPassword.dto";
+import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 
 @Injectable()
 export class EmailService {
@@ -33,10 +35,17 @@ export class EmailService {
     return emailResp;
   }
 
-  async sentResetPasswordLink(sentEmailDto: Omit<SentEmailDto, "message">) {
+  async sentResetPasswordLink(
+    sentResetEmailDto: ForgotPasswordDto,
+    user_id: string,
+    userAgent: string,
+    device_id: string
+  ) {
+    let deviceInfo: any | null = null;
+
     try {
       const resetToken = await this.sessionService.genearateResetPasswordToken(
-        sentEmailDto.address_to
+        sentResetEmailDto.forgot_pass_email
       );
 
       const resetToken_decoded =
@@ -70,7 +79,7 @@ export class EmailService {
 
       const emailResp = await this.mailService.sendMail({
         from: `Merger App <${process.env.GOOGLE_FROM_EMAIL}>`,
-        to: sentEmailDto.address_to,
+        to: sentResetEmailDto.forgot_pass_email,
         subject: `Reset your Merger App password`,
         html: resetLinkEmailHTML,
       });
@@ -87,7 +96,7 @@ export class EmailService {
 
         const tempEmailLog = this.emailLogRepo.create();
 
-        tempEmailLog.address_to = sentEmailDto.address_to;
+        tempEmailLog.address_to = sentResetEmailDto.forgot_pass_email;
         tempEmailLog.message = emailMessageText;
         tempEmailLog.sent_at = new Date(Date.now());
         tempEmailLog.status = EmailStatus.SENT;
@@ -103,17 +112,32 @@ export class EmailService {
 
         console.log("createEmailLog: ", createEmailLog);
 
+        //Get device information
+        if (userAgent) {
+          deviceInfo = await DeviceInfo(userAgent);
+        }
+
+        console.log("deviceInfo: ", deviceInfo);
+
         // Create Reset password log
         const temprestPasswordLog = this.resetPasswordRepo.create();
 
         temprestPasswordLog.email_log_id = createEmailLog.id;
-        temprestPasswordLog.user_id = sentEmailDto.user_id;
+        temprestPasswordLog.user_id = user_id;
         temprestPasswordLog.token_hash = token_hash;
-        temprestPasswordLog.expires_at = resetToken_decoded.exp;
+        temprestPasswordLog.expires_at = new Date(
+          parseInt(resetToken_decoded.exp) * 1000
+        );
         temprestPasswordLog.is_token_used = false;
+        temprestPasswordLog.device_id = device_id;
+        temprestPasswordLog.device_type = deviceInfo.device.type ?? null;
+        temprestPasswordLog.device_os = deviceInfo.os.name ?? null;
+        temprestPasswordLog.device_ip = sentResetEmailDto.device_ip;
+        temprestPasswordLog.device_lat = sentResetEmailDto.device_lat;
+        temprestPasswordLog.device_long = sentResetEmailDto.device_long;
 
         const createResetPasswordLog =
-          await this.emailLogRepo.save(temprestPasswordLog);
+          await this.resetPasswordRepo.save(temprestPasswordLog);
 
         if (!createResetPasswordLog) {
           return {

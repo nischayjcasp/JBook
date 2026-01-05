@@ -19,6 +19,8 @@ import { UserSession } from "../session/entities/user_session.entity";
 import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
 import { EmailService } from "../email/email.service";
 import { ResetPasswordDto } from "./dto/resetPassword.dro";
+import { ResetPasswordLog } from "./entities/resetPassword.entity";
+import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class AuthService {
@@ -28,8 +30,11 @@ export class AuthService {
 
     @InjectRepository(UserSession)
     private readonly sessionRepo: Repository<UserSession>,
+    @InjectRepository(ResetPasswordLog)
+    private readonly resetPassRepo: Repository<ResetPasswordLog>,
     private readonly sessionService: SessionService,
-    private readonly emailService: EmailService
+    private readonly emailService: EmailService,
+    private readonly usersService: UsersService
   ) {}
 
   //<============== Login ==============>
@@ -73,17 +78,10 @@ export class AuthService {
         };
       }
 
-      const deviceInfo = await DeviceInfo(
-        loginWithEmailDto.user_agent as string
-      );
-
-      console.log("deviceInfo: ", deviceInfo);
-
       const sessionPayload: SessionData = {
         userId: finduser.id,
         device_id: device_id,
-        device_type: deviceInfo.device.type ?? null,
-        device_os: deviceInfo.os.name ?? null,
+        user_agent: loginWithEmailDto.user_agent,
         device_ip: loginWithEmailDto.device_ip as string,
         device_lat: loginWithEmailDto.device_lat,
         device_long: loginWithEmailDto.device_long,
@@ -174,8 +172,7 @@ export class AuthService {
         const sessionPayload: SessionData = {
           userId: findUser.id,
           device_id,
-          device_type: deviceInfo.device.type ?? null,
-          device_os: deviceInfo.os.name ?? null,
+          user_agent: loginWithGoogleDto.user_agent,
           device_ip: loginWithGoogleDto.device_ip as string,
           device_lat: loginWithGoogleDto.device_lat,
           device_long: loginWithGoogleDto.device_long,
@@ -254,8 +251,7 @@ export class AuthService {
         const sessionPayload: SessionData = {
           userId: findUser.id,
           device_id,
-          device_type: deviceInfo.device.type ?? null,
-          device_os: deviceInfo.os.name ?? null,
+          user_agent: loginWithFacebookDto.user_agent,
           device_ip: loginWithFacebookDto.device_ip as string,
           device_lat: loginWithFacebookDto.device_lat,
           device_long: loginWithFacebookDto.device_long,
@@ -345,8 +341,7 @@ export class AuthService {
         const sessionPayload: SessionData = {
           userId: findUser.id,
           device_id,
-          device_type: deviceInfo.device.type ?? null,
-          device_os: deviceInfo.os.name ?? null,
+          user_agent: loginWithLinkedInDto.user_agent,
           device_ip: loginWithLinkedInDto.device_ip as string,
           device_lat: loginWithLinkedInDto.device_lat,
           device_long: loginWithLinkedInDto.device_long,
@@ -392,62 +387,23 @@ export class AuthService {
     device_id: string
   ) {
     try {
-      // Check if user already registered?
-      const findUser = await this.usersRepo.findOne({
-        where: { email: signUpWithEmailDto.signup_email },
+      const createUserRes = await this.usersService.createUser({
+        signup_display_name: signUpWithEmailDto.signup_username,
+        signup_dob: signUpWithEmailDto.signup_dob,
+        signup_gender: signUpWithEmailDto.signup_gender,
+        signup_mobile: signUpWithEmailDto.signup_mobile,
+        signup_email: signUpWithEmailDto.signup_email,
+        signup_password: signUpWithEmailDto.signup_password,
       });
 
-      if (findUser) {
-        return {
-          status: 400,
-          message: "User already register with us.",
-        };
-      }
-
-      // Hashing password before storing in DB
-      const saltRound = 10;
-      const hash = await bcrypt.hash(
-        signUpWithEmailDto.signup_password,
-        saltRound
-      );
-
-      signUpWithEmailDto.signup_password = hash;
-
-      // console.log("signUpWithEmailDto: ", signUpWithEmailDto);
-
-      // Creating new user
-
-      let tempSignupData = this.usersRepo.create();
-
-      tempSignupData.display_name = signUpWithEmailDto.signup_username;
-      tempSignupData.username = tempSignupData.display_name + Date.now();
-      tempSignupData.dob = signUpWithEmailDto.signup_dob;
-      tempSignupData.email = signUpWithEmailDto.signup_email;
-      tempSignupData.gender = signUpWithEmailDto.signup_gender;
-      tempSignupData.mobile_no = signUpWithEmailDto.signup_mobile;
-      tempSignupData.password = signUpWithEmailDto.signup_password;
-      tempSignupData.primary_account = null;
-      tempSignupData.profile_photo = null;
-
-      // console.log("tempSignupData: ", tempSignupData);
-
-      let createUserRes = await this.usersRepo.save(tempSignupData);
-
-      // console.log("createUserRes: ", createUserRes);
+      console.log("createUserRes: ", createUserRes);
 
       // Create new session for user
-      if (createUserRes) {
-        const deviceInfo = await DeviceInfo(
-          signUpWithEmailDto.user_agent as string
-        );
-
-        // console.log("deviceInfo: ", deviceInfo);
-
+      if (createUserRes && createUserRes.status === 201 && createUserRes.user) {
         const sessionPayload: SessionData = {
-          userId: createUserRes.id,
+          userId: createUserRes.user.id as string,
           device_id: device_id,
-          device_type: deviceInfo.device.type ?? null,
-          device_os: deviceInfo.os.name ?? null,
+          user_agent: signUpWithEmailDto.user_agent as string,
           device_ip: signUpWithEmailDto.device_ip as string,
           device_lat: signUpWithEmailDto.device_lat,
           device_long: signUpWithEmailDto.device_long,
@@ -456,7 +412,7 @@ export class AuthService {
         const createdSession =
           await this.sessionService.createSession(sessionPayload);
 
-        // console.log("createdSession: ", createdSession);
+        console.log("createdSession: ", createdSession);
 
         return {
           status: 200,
@@ -520,47 +476,24 @@ export class AuthService {
 
         console.log("googleUserInfo: ", googleUserInfo.data);
 
-        // Check if user already registered?
-        const findUser = await this.usersRepo.findOne({
-          where: { email: googleUserInfo.data.email },
+        const createUserRes = await this.usersService.createUser({
+          signup_display_name: googleUserInfo.data.name as string,
+          signup_email: googleUserInfo.data.email as string,
+          profile_photo: googleUserInfo.data.picture ?? null,
         });
-
-        if (findUser) {
-          return {
-            status: 400,
-            message: "User already register with us.",
-          };
-        }
-
-        // Creating new user
-        let tempSignupData = this.usersRepo.create();
-
-        tempSignupData.display_name = googleUserInfo.data.name as string;
-        tempSignupData.username =
-          tempSignupData.display_name.replaceAll(" ", "") + Date.now();
-        tempSignupData.email = googleUserInfo.data.email as string;
-        tempSignupData.primary_account = null;
-        tempSignupData.profile_photo = googleUserInfo.data.picture ?? null;
-
-        console.log("tempSignupData: ", tempSignupData);
-
-        let createUserRes = await this.usersRepo.save(tempSignupData);
 
         console.log("createUserRes: ", createUserRes);
 
         // Create new session for user
-        if (createUserRes) {
-          const deviceInfo = await DeviceInfo(
-            signUpWithGoogleDto.user_agent as string
-          );
-
-          console.log("deviceInfo: ", deviceInfo);
-
+        if (
+          createUserRes &&
+          createUserRes.status === 201 &&
+          createUserRes.user
+        ) {
           const sessionPayload: SessionData = {
-            userId: createUserRes.id,
+            userId: createUserRes.user.id,
             device_id,
-            device_type: deviceInfo.device.type ?? null,
-            device_os: deviceInfo.os.name ?? null,
+            user_agent: signUpWithGoogleDto.user_agent,
             device_ip: signUpWithGoogleDto.device_ip as string,
             device_lat: signUpWithGoogleDto.device_lat,
             device_long: signUpWithGoogleDto.device_long,
@@ -626,49 +559,24 @@ export class AuthService {
       // };
 
       if (faceebookUserInfo.data) {
-        // Check if user already registered?
-        const findUser = await this.usersRepo.findOne({
-          where: { email: faceebookUserInfo.data.email },
+        const createUserRes = await this.usersService.createUser({
+          signup_display_name: faceebookUserInfo.data.name as string,
+          signup_email: faceebookUserInfo.data.email as string,
+          profile_photo: faceebookUserInfo.data.picture.data.url ?? null,
         });
-
-        if (findUser) {
-          return {
-            status: 400,
-            message: "User already register with us.",
-          };
-        }
-
-        // Creating new user
-        let tempSignupData = this.usersRepo.create();
-
-        tempSignupData.display_name = faceebookUserInfo.data.name as string;
-        tempSignupData.username =
-          tempSignupData.display_name.replaceAll(" ", "").toLowerCase() +
-          Date.now();
-        tempSignupData.email = faceebookUserInfo.data.email as string;
-        tempSignupData.primary_account = null;
-        tempSignupData.profile_photo =
-          faceebookUserInfo.data.picture.data.url ?? null;
-
-        console.log("tempSignupData: ", tempSignupData);
-
-        let createUserRes = await this.usersRepo.save(tempSignupData);
 
         console.log("createUserRes: ", createUserRes);
 
         // Create new session for user
-        if (createUserRes) {
-          const deviceInfo = await DeviceInfo(
-            signUpWithFacebookDto.user_agent as string
-          );
-
-          console.log("deviceInfo: ", deviceInfo);
-
+        if (
+          createUserRes &&
+          createUserRes.status === 201 &&
+          createUserRes.user
+        ) {
           const sessionPayload: SessionData = {
-            userId: createUserRes.id,
+            userId: createUserRes.user.id,
             device_id,
-            device_type: deviceInfo.device.type ?? null,
-            device_os: deviceInfo.os.name ?? null,
+            user_agent: signUpWithFacebookDto.user_agent,
             device_ip: signUpWithFacebookDto.device_ip as string,
             device_lat: signUpWithFacebookDto.device_lat,
             device_long: signUpWithFacebookDto.device_long,
@@ -763,48 +671,24 @@ export class AuthService {
         //     "https://media.licdn.com/dms/image/v2/D4E03AQGXj9PQOVJiOA/profile-displayphoto-shrink_200_200/B4EZrove3dHEAc-/0/1764841352954?e=1769040000&v=beta&t=aDnR4qQnereuz5jdaa5BTAz2gM5-NqouGaqdL8yLk2M",
         // };
 
-        // Check if user already registered?
-        const findUser = await this.usersRepo.findOne({
-          where: { email: linkedInProfileRes.data.email },
+        const createUserRes = await this.usersService.createUser({
+          signup_display_name: linkedInProfileRes.data.name as string,
+          signup_email: linkedInProfileRes.data.email as string,
+          profile_photo: linkedInProfileRes.data.picture ?? null,
         });
-
-        if (findUser) {
-          return {
-            status: 400,
-            message: "User already register with us.",
-          };
-        }
-
-        // Creating new user
-        let tempSignupData = this.usersRepo.create();
-
-        tempSignupData.display_name = linkedInProfileRes.data.name as string;
-        tempSignupData.username =
-          tempSignupData.display_name.replaceAll(" ", "").toLowerCase() +
-          Date.now();
-        tempSignupData.email = linkedInProfileRes.data.email as string;
-        tempSignupData.primary_account = null;
-        tempSignupData.profile_photo = linkedInProfileRes.data.picture ?? null;
-
-        console.log("tempSignupData: ", tempSignupData);
-
-        let createUserRes = await this.usersRepo.save(tempSignupData);
 
         console.log("createUserRes: ", createUserRes);
 
         // Create new session for user
-        if (createUserRes) {
-          const deviceInfo = await DeviceInfo(
-            signUpWithLinkedInDto.user_agent as string
-          );
-
-          console.log("deviceInfo: ", deviceInfo);
-
+        if (
+          createUserRes &&
+          createUserRes.status === 201 &&
+          createUserRes.user
+        ) {
           const sessionPayload: SessionData = {
-            userId: createUserRes.id,
+            userId: createUserRes.user.id,
             device_id,
-            device_type: deviceInfo.device.type ?? null,
-            device_os: deviceInfo.os.name ?? null,
+            user_agent: signUpWithLinkedInDto.user_agent,
             device_ip: signUpWithLinkedInDto.device_ip as string,
             device_lat: signUpWithLinkedInDto.device_lat,
             device_long: signUpWithLinkedInDto.device_long,
@@ -912,10 +796,12 @@ export class AuthService {
       console.log("finduser: ", finduser, userAgent, device_id);
 
       // Sent reset password email
-      const emailResp = await this.emailService.sentResetPasswordLink({
-        address_to: forgotPasswordDto.forgot_pass_email,
-        user_id: finduser.id,
-      });
+      const emailResp = await this.emailService.sentResetPasswordLink(
+        forgotPasswordDto,
+        finduser.id,
+        userAgent,
+        device_id
+      );
 
       console.log("emailResp: ", emailResp);
 
@@ -939,30 +825,81 @@ export class AuthService {
   async resetPassword(
     resetPasswordDto: ResetPasswordDto,
     userAgent: string,
+    resetCode: string,
     device_id: string
   ) {
     try {
       // finduser in DB
-      // const finduser = await this.usersRepo.findOne({
-      //   where: {
-      //     email: "",
-      //   },
-      // });
-      // if (!finduser) {
-      //   return {
-      //     status: 400,
-      //     message: "User is not registered!",
-      //   };
-      // }
-      // console.log("finduser: ", finduser, userAgent, device_id);
-      // Sent reset password successful email
-      // const emailResp = await this.emailService.sentResetPasswordLink({
-      //   address_to: forgotPasswordDto.forgot_pass_email,
-      // });
-      // console.log("emailResp: ", emailResp);
-      // return emailResp;
+      const findCode = await this.resetPassRepo.findOne({
+        where: {
+          token_hash: resetCode,
+        },
+      });
+
+      if (!findCode) {
+        return {
+          status: 401,
+          message: "Unauthorized request!",
+        };
+      }
+
+      // vetify resetCode expiry
+      const isCodeValid =
+        new Date(Date.now()) < findCode.expires_at && !findCode.is_token_used;
+
+      if (!isCodeValid) {
+        return {
+          status: 400,
+          message: "Your password reset link is invalid!",
+        };
+      }
+
+      //Find user password
+      const findUser = await this.usersRepo.findOne({
+        where: {
+          id: findCode.user_id,
+        },
+      });
+
+      if (!findUser) {
+        return {
+          status: 400,
+          message: "User do not found!",
+        };
+      }
+
+      //Find user password
+      const updateUserRes = await this.usersService.updateUser(findUser.id, {
+        signup_password: resetPasswordDto.new_pass,
+      });
+
+      if (updateUserRes && updateUserRes.status === 200 && updateUserRes.user) {
+        // update reset password log
+        findCode.is_token_used = true;
+
+        const resetPasswordLog = await this.resetPassRepo.save(findCode);
+
+        if (!resetPasswordLog) {
+          return {
+            status: 500,
+            message: "Error occured while updating reseting password logs.",
+          };
+        }
+
+        return {
+          status: 200,
+          message: "Your password updated successfully",
+        };
+      } else {
+        return updateUserRes;
+      }
     } catch (error) {
       console.log("Error: ", error);
+      return {
+        status: 500,
+        message: "Error occured while reseting password the user.",
+        error_message: error.message,
+      };
     }
   }
 }

@@ -11,10 +11,6 @@ export class ResetPasswordDto {
   @IsNotEmpty()
   new_pass: string;
 
-  @IsString()
-  @IsNotEmpty()
-  resetCode: string;
-
   @IsOptional()
   @IsString()
   device_ip: string | null;

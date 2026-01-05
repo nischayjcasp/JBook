@@ -6,10 +6,13 @@ export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   let isProtected: boolean;
   let isAuth: boolean = false;
-  const MERGER_ACCESS_TOKEN = req.cookies.get("MERGER_ACCESS_TOKEN")?.value;
   const MERGER_SESSION = req.cookies.get("MERGER_SESSION")?.value;
 
   console.log("path: ", path);
+
+  if (path === "/") {
+    return NextResponse.redirect(new URL("/login", req.url));
+  }
 
   //   Check for protectedt routes
   if (path.startsWith("/dashboard") || path.startsWith("/merger")) {

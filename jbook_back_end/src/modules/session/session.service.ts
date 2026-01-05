@@ -9,6 +9,7 @@ import {
   EndSessionResp,
   SessionData,
 } from "./session.type";
+import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 
 @Injectable()
 export class SessionService {
@@ -139,14 +140,23 @@ export class SessionService {
   // <==================  Session Service ==================>
 
   async createSession(sessionData: SessionData): Promise<CreatedSessionData> {
+    let deviceInfo: any = null;
+
+    //Get device information
+    if (sessionData.user_agent) {
+      deviceInfo = await DeviceInfo(sessionData.user_agent);
+    }
+
+    console.log("deviceInfo: ", deviceInfo);
+
     // Creating new session
     const newSession = this.sessionRepo.create();
 
     newSession.user_id = sessionData.userId;
     newSession.status = SessionStatus.BLOCKED;
     newSession.device_id = sessionData.device_id;
-    newSession.device_type = sessionData.device_type;
-    newSession.device_os = sessionData.device_os;
+    newSession.device_type = deviceInfo.device.type ?? null;
+    newSession.device_os = deviceInfo.os.name ?? null;
     newSession.device_ip = sessionData.device_ip;
     newSession.device_lat = sessionData.device_lat;
     newSession.device_long = sessionData.device_long;

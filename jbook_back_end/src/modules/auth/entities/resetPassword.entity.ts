@@ -26,6 +26,24 @@ export class ResetPasswordLog {
   @Column({ type: "timestamptz" })
   expires_at: Date;
 
+  @Column({ type: "text", nullable: true })
+  device_id: string | null;
+
+  @Column({ type: "text", nullable: true })
+  device_type: string | null;
+
+  @Column({ type: "text", nullable: true })
+  device_os: string | null;
+
+  @Column({ type: "text", nullable: true })
+  device_ip: string | null;
+
+  @Column({ type: "text", nullable: true })
+  device_lat: number | null;
+
+  @Column({ type: "text", nullable: true })
+  device_long: number | null;
+
   @CreateDateColumn({ type: "timestamptz" })
   created_at: Date;
 
