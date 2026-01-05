@@ -11,6 +11,7 @@ import { validate } from "./config/env.validation";
 import { EmailService } from "./modules/email/email.service";
 import { EmailModule } from "./modules/email/email.module";
 import { MailerModule } from "@nestjs-modules/mailer";
+import { PostModule } from './modules/post/post.module';
 
 @Module({
   imports: [
@@ -58,6 +59,7 @@ import { MailerModule } from "@nestjs-modules/mailer";
     UsersModule,
     SessionModule,
     EmailModule,
+    PostModule,
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],

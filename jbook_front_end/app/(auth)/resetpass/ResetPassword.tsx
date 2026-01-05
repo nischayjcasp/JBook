@@ -80,7 +80,10 @@ const ResetPassword = () => {
         router.replace("/login");
         toast.error(resetPasswordRes.message);
         toast.success(resetPasswordRes.message);
-      } else if (resetPasswordRes.status === 400) {
+      } else if (
+        resetPasswordRes.status === 400 ||
+        resetPasswordRes.status === 401
+      ) {
         resetPassReset();
         router.replace("/forget");
         toast.error(resetPasswordRes.message);

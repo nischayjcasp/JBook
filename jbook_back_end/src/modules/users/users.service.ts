@@ -14,6 +14,59 @@ export class UsersService {
     private readonly usersRepo: Repository<Users>
   ) {}
 
+  async getUserById(user_id: string) {
+    try {
+      // Check if user already registered?
+      const findUser = await this.usersRepo.findOne({
+        where: { id: user_id },
+      });
+
+      if (findUser) {
+        return {
+          status: 400,
+          message: "User already register with us.",
+        };
+      }
+
+      return {
+        status: 200,
+        message: "Fetched User successfully",
+        user: findUser,
+      };
+    } catch (error) {
+      console.log("error", error);
+
+      return {
+        status: 500,
+        message: "Error occured during fetching the user.",
+        error_message: error.message,
+      };
+    }
+  }
+
+  async findUserByEmail(text: string) {
+    try {
+      // Check if user already registered?
+      const findUsers = await this.usersRepo.find({
+        where: { email: text },
+      });
+
+      return {
+        status: 200,
+        message: findUsers ? "Fetched Users successfully" : "No users found",
+        user: findUsers ?? [],
+      };
+    } catch (error) {
+      console.log("error", error);
+
+      return {
+        status: 500,
+        message: "Error occured during fetching the users.",
+        error_message: error.message,
+      };
+    }
+  }
+
   async createUser(createUserDto: Partial<CreateUserDto>) {
     try {
       // Check if user already registered?
@@ -143,6 +196,45 @@ export class UsersService {
       return {
         status: 500,
         message: "Error occured during updating the user.",
+        error_message: error.message,
+      };
+    }
+  }
+
+  async deleteUser(user_id: string) {
+    try {
+      // Check if user already registered?
+      const findUser = await this.usersRepo.findOne({
+        where: { id: user_id },
+      });
+
+      if (!findUser) {
+        return {
+          status: 400,
+          message: "User is not registered.",
+        };
+      }
+
+      // deleting user
+      let deleteUserRes = await this.usersRepo.delete({ id: user_id });
+
+      if (!deleteUserRes) {
+        return {
+          status: 500,
+          message: "Error occured during deleting the user.",
+        };
+      }
+
+      return {
+        status: 200,
+        message: "User deleted successfully",
+      };
+    } catch (error) {
+      console.log("error", error);
+
+      return {
+        status: 500,
+        message: "Error occured during deleting the user.",
         error_message: error.message,
       };
     }
