@@ -118,6 +118,18 @@ class EnvVariables {
   @IsString()
   @IsNotEmpty()
   RESET_PASSSWORD_EXPIRY: string;
+
+  @IsString()
+  @IsNotEmpty()
+  CLOUDINARY_CLOUD_NAME: string;
+
+  @IsString()
+  @IsNotEmpty()
+  CLOUDINARY_API_KEY: string;
+
+  @IsString()
+  @IsNotEmpty()
+  CLOUDINARY_API_SECRET: string;
 }
 
 // Validation function

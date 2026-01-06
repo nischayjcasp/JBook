@@ -44,11 +44,13 @@ import Image from "next/image";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
   addPostSchema,
+  AddPostSchemaType,
   deleteAccSchema,
   passChangeSchema,
   PassChangeSchemaType,
   userPhotoSupportedFormats,
   userProfileSchema,
+  UserProfileSchemaType,
 } from "@/lib/schemas/settings.schema";
 import { toast } from "react-toastify";
 import { GoDotFill } from "react-icons/go";
@@ -61,6 +63,8 @@ import {
   setSecondaryAccData,
 } from "@/redux/slices/mergerSlice";
 import { logoutAPI } from "@/services/auth.service";
+import { createPostAPI } from "@/services/post.service";
+import { fetchUserData, updateUserAPI } from "@/services/user.serivce";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -148,19 +152,15 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   } = useForm({
     resolver: yupResolver(userProfileSchema),
     defaultValues: {
-      user_photo: userData.userPhoto,
-      user_display_name: userData.userDisplayName,
-      user_username: userData.userName ?? "",
-      user_dob: new Date(userData.userDob),
-      user_email: userData.userEmail,
-      user_gender: userData.userGender,
+      user_photo: "",
+      user_display_name: "",
+      user_username: "",
+      user_dob: undefined,
+      user_email: "",
+      user_gender: "",
       user_password: "*********",
     },
   });
-
-  const handleAccountSave = (data: any) => {
-    console.log(data);
-  };
 
   const userPhoto: any = accountFormWatch("user_photo");
 
@@ -169,11 +169,59 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     if (userPhoto && userPhotoSupportedFormats.includes(userPhoto.type)) {
       const photoUrl = URL.createObjectURL(userPhoto);
       console.log("photoUrl", photoUrl);
-      accountSetValue("user_photo", photoUrl);
+      // accountSetValue("user_photo", photoUrl);
+      setUserPic(photoUrl);
+    } else {
+      setUserPic("");
     }
   }, [userPhoto]);
 
+  const handleAccountSave = async (data: UserProfileSchemaType) => {
+    console.log(data);
+    setLoading(true);
+
+    try {
+      let updateUserData = new FormData();
+
+      updateUserData.append("signup_display_name", data.user_display_name);
+      updateUserData.append("signup_gender", data.user_gender);
+      updateUserData.append(
+        "signup_dob",
+        new Date(data.user_dob).toISOString()
+      );
+
+      if (data.user_photo) {
+        updateUserData.append("user_photo", data.user_photo as File);
+      }
+
+      const updateUserRes = await updateUserAPI(
+        userData.userId,
+        updateUserData
+      );
+
+      console.log("updateUserRes: ", updateUserRes);
+
+      if (updateUserRes.status === 200) {
+        toast.success(updateUserRes.message);
+        await fetchUserData();
+        // openSettingDialog();
+      } else {
+        toast.error(updateUserRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   //Add post form
+  const postRandNum = Math.ceil(Math.random() * 10000);
+  const postRandumText = `What is Lorem Ipsum? ${postRandNum}
+Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.`;
+
   const {
     control: addPostControl,
     handleSubmit: addPostSubmit,
@@ -183,15 +231,15 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   } = useForm({
     resolver: yupResolver(addPostSchema),
     defaultValues: {
-      post_date: new Date("2025-12-04"),
-      post_text: "SitaRAM",
+      post_title: `Post title - ${postRandNum}`,
+      post_text: postRandumText,
     },
   });
 
   const postPhoto: any = postWatch("post_photo");
 
   useEffect(() => {
-    console.log("post_photo", userPhoto);
+    console.log("post_photo", postPhoto);
     if (postPhoto && userPhotoSupportedFormats.includes(postPhoto.type)) {
       const photoUrl = URL.createObjectURL(postPhoto);
       console.log("photoUrl", photoUrl);
@@ -210,17 +258,38 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const onAddPost = async (data: any) => {
+  const onAddPost = async (data: AddPostSchemaType) => {
     console.log(data);
     setLoading(true);
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        setLoading(false);
-        toast.success("Post added successfully.");
+
+    try {
+      let createPostData = new FormData();
+
+      createPostData.append("post_title", data.post_title);
+      createPostData.append("post_text", data.post_text);
+
+      if (data.post_photo) {
+        createPostData.append("post_photo", data.post_photo as File);
+      }
+
+      const createPostRes = await createPostAPI(createPostData);
+
+      console.log("createPostRes: ", createPostRes);
+
+      if (createPostRes.status === 201) {
+        toast.success(createPostRes.message);
         closeAddDialog();
-        resolve("done");
-      }, 5000);
-    });
+        window.location.reload();
+      } else {
+        toast.error(createPostRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   //Change password form
@@ -272,12 +341,28 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
   const openSettingDialog = () => {
     setSettingDialog(true);
+
+    // Setting account form values
+    if (userData) {
+      console.log("userData: ", userData);
+      // accountSetValue("user_photo", userData.userPhoto);
+      setUserPic(userData.userPhoto);
+      accountSetValue("user_display_name", userData.userDisplayName);
+      accountSetValue("user_username", userData.userName);
+      accountSetValue("user_dob", new Date(userData.userDob));
+      accountSetValue("user_email", userData.userEmail);
+      accountSetValue("user_gender", userData.userGender);
+      accountSetValue("user_password", "*********");
+    }
   };
 
   const closeSettingDialog = () => {
-    setSettingDialog(false);
-    accountReset();
-    setSettingActiveTab(0);
+    if (!isLoading) {
+      setSettingDialog(false);
+      accountReset();
+      setUserPic("");
+      setSettingActiveTab(0);
+    }
   };
 
   // Merge Account search
@@ -482,38 +567,32 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
             </div>
 
             {/* Add Form */}
-            <form className="w-full p-4" onSubmit={addPostSubmit(onAddPost)}>
-              {/* Post date */}
+            <form
+              className="w-full p-4"
+              encType="multipart/form-data"
+              onSubmit={addPostSubmit(onAddPost)}
+            >
+              {/* Post title */}
               <div className="mb-2">
                 <Controller
-                  name="post_date"
+                  name="post_title"
                   control={addPostControl}
                   render={({ field: { value, onChange, name } }) => (
-                    <LocalizationProvider dateAdapter={AdapterDayjs}>
-                      <DateTimePicker
-                        name={name}
-                        label="Birthdate"
-                        format="DD-MM-YYYY HH:MM A"
-                        value={value ? dayjs(value) : dayjs("")}
-                        viewRenderers={{
-                          hours: renderTimeViewClock,
-                          minutes: renderTimeViewClock,
-                          seconds: renderTimeViewClock,
-                        }}
-                        onChange={onChange}
-                        slotProps={{
-                          textField: {
-                            fullWidth: true,
-                            error: addPostErrors.post_date?.message
-                              ? true
-                              : false,
-                            helperText: addPostErrors.post_date?.message
-                              ? `${addPostErrors.post_date.message}`
-                              : " ",
-                          },
-                        }}
-                      />
-                    </LocalizationProvider>
+                    <TextField
+                      label="Post title"
+                      placeholder="Enter post title"
+                      name={name}
+                      value={value}
+                      onChange={onChange}
+                      variant="outlined"
+                      className="w-full"
+                      error={addPostErrors.post_title?.message ? true : false}
+                      helperText={
+                        addPostErrors.post_title?.message
+                          ? `${addPostErrors.post_title.message}`
+                          : " "
+                      }
+                    />
                   )}
                 />
               </div>
@@ -667,8 +746,8 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                 },
               }}
             >
-              <Tab label="Account" />
-              <Tab label="Merge" />
+              <Tab label="Account" disabled={isLoading} />
+              <Tab label="Merge" disabled={isLoading} />
             </Tabs>
           </div>
 
@@ -682,10 +761,11 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   <p>Account</p>
                   <button
                     type="button"
+                    disabled={isLoading}
                     onClick={closeSettingDialog}
-                    className="cursor-pointer"
+                    className="cursor-pointer text-red-500 disabled:cursor-default disabled:text-slate-500"
                   >
-                    <IoMdClose className="text-2xl text-red-500 z-1000" />
+                    <IoMdClose className="text-2xl z-1000" />
                   </button>
                 </div>
 
@@ -694,7 +774,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   onSubmit={accountSubmit(handleAccountSave)}
                 >
                   {/* Photo */}
-                  <div className="mb-7">
+                  <div className="mb-3">
                     <p className="font-semibold mb-2">User Photo</p>
 
                     <div className="flex-1 flex flex-col gap-3">
@@ -707,9 +787,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                               <div>
                                 <Avatar
                                   alt="Remy Sharp"
-                                  src={
-                                    (value as string) ?? "/userDefaultPic.jpg"
-                                  }
+                                  src={userPic ?? "/userDefaultPic.jpg"}
                                   sx={{ width: "90px", height: "90px" }}
                                 />
                               </div>
@@ -732,10 +810,16 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                       </div>
 
                       <div>
-                        <p className="max-w-full overflow-x-hidden text-black/70 text-xs mb-2">
-                          {userPhoto && userPhoto?.name}
+                        <p className="min-h-4 max-w-full overflow-x-hidden text-black/70 text-xs mb-2">
+                          {userPhoto
+                            ? `${userPhoto.name
+                                .split(".")[0]
+                                .slice(0, 30)}... .${
+                                userPhoto.name.split(".")[1]
+                              }`
+                            : "No file selected"}
                         </p>
-                        <p className=" text-red-500 text-xs">
+                        <p className="min-h-4 text-red-500 text-xs">
                           {accountErrors.user_photo
                             ? accountErrors.user_photo?.message
                             : " "}
@@ -745,7 +829,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   </div>
 
                   {/* Username */}
-                  <div className="mb-3 ">
+                  <div className="mb-3">
                     <Controller
                       name="user_username"
                       control={accountControl}
@@ -808,8 +892,10 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                             name={name}
                             label="Birthdate"
                             format="DD-MM-YYYY"
-                            value={value ? dayjs(value) : dayjs("DD-MM-YYYY")}
-                            onChange={onChange}
+                            value={dayjs(value)}
+                            onChange={(value) =>
+                              onChange(dayjs(value).toDate())
+                            }
                             slotProps={{
                               textField: {
                                 error: accountErrors.user_dob?.message
@@ -955,7 +1041,8 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
                   <div className="z-10 sticky bottom-0 bg-white flex py-4 border-t border-t-slate-200 justify-end gap-3">
                     <button
                       type="button"
-                      className="py-2 px-3 bg-slate-200 hover:bg-slate-200 cursor-pointer  font-semibold text-sm rounded-md"
+                      disabled={isLoading}
+                      className="py-2 px-3 bg-slate-200 hover:bg-slate-200 cursor-pointer  font-semibold text-sm rounded-md disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                       onClick={closeSettingDialog}
                     >
                       Cancel
@@ -963,9 +1050,21 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
                     <button
                       type="submit"
-                      className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md"
+                      disabled={isLoading}
+                      className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md flex justify-center items-center gap-2 disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                     >
-                      Save
+                      {/* Loader */}
+                      {isLoading && (
+                        <CircularProgress
+                          size="16px"
+                          sx={{
+                            "&.MuiCircularProgress-root": {
+                              color: "#62748e",
+                            },
+                          }}
+                        />
+                      )}
+                      {isLoading ? "Saving..." : "Save"}
                     </button>
                   </div>
                 </form>

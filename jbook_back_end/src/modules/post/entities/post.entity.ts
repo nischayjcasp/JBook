@@ -20,8 +20,8 @@ export class Post {
   @Column()
   post_text: string;
 
-  @Column()
-  post_image: string;
+  @Column({ type: "text", nullable: true })
+  post_image: string | null;
 
   @CreateDateColumn()
   created_at: Date;

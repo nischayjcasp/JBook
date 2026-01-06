@@ -31,7 +31,7 @@ import {
   GoogleSignupPayload,
 } from "@/services/auth.type";
 import { useDispatch } from "react-redux";
-import { setSession } from "@/redux/slices/userSlice";
+import { setSession, setUserdata } from "@/redux/slices/userSlice";
 import { toast } from "react-toastify";
 import { CircularProgress } from "@mui/material";
 
@@ -108,8 +108,8 @@ const Login = () => {
   } = useForm<LoginSchemaType>({
     resolver: yupResolver(loginSchema),
     defaultValues: {
-      login_email: "",
-      login_password: "",
+      login_email: "ram8606@gmail.com",
+      login_password: "Ram@@8606",
     },
   });
 
@@ -136,6 +136,12 @@ const Login = () => {
       console.log("emailLoginRes: ", emailLoginRes);
 
       if (emailLoginRes.status === 200) {
+        dispatch(setSession(emailLoginRes.access_token));
+        dispatch(
+          setUserdata({
+            userId: emailLoginRes.user_id,
+          })
+        );
         loginReset();
         toast.success(emailLoginRes.message);
         router.replace("/dashboard");

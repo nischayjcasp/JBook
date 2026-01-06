@@ -1,4 +1,9 @@
-import { Module } from "@nestjs/common";
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
 import { AuthModule } from "./modules/auth/auth.module";
@@ -11,7 +16,8 @@ import { validate } from "./config/env.validation";
 import { EmailService } from "./modules/email/email.service";
 import { EmailModule } from "./modules/email/email.module";
 import { MailerModule } from "@nestjs-modules/mailer";
-import { PostModule } from './modules/post/post.module';
+import { PostModule } from "./modules/post/post.module";
+import { AuthMiddleware } from "./middlewares/auth.middleware";
 
 @Module({
   imports: [
@@ -64,4 +70,16 @@ import { PostModule } from './modules/post/post.module';
   controllers: [AppController],
   providers: [AppService, EmailService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer
+      .apply(AuthMiddleware)
+      .exclude(
+        { path: "/auth/login/*splat", method: RequestMethod.ALL },
+        { path: "/auth/signup/*splat", method: RequestMethod.ALL },
+        { path: "auth/forgot/password", method: RequestMethod.ALL },
+        { path: "/auth/refresh/token", method: RequestMethod.ALL }
+      )
+      .forRoutes("*");
+  }
+}

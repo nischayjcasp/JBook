@@ -11,6 +11,8 @@ export interface LoginApiRes {
   status: number;
   message: string;
   error_message?: string;
+  access_token?: string;
+  user_id?: string;
 }
 
 export interface EmailSignupPayloadType {

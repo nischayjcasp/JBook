@@ -2,17 +2,64 @@ import { Injectable } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Users } from "./entities/user.entity";
-import { Repository } from "typeorm";
+import { Like, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 import { UpdateUserDto } from "./dto/update-user.dto";
+import { UserSession } from "../session/entities/user_session.entity";
+import { v2 as cloudinary } from "cloudinary";
+import { UploadLog, UploadStatus } from "../post/entities/uploadLog.entity";
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectRepository(Users)
-    private readonly usersRepo: Repository<Users>
+    private readonly usersRepo: Repository<Users>,
+    @InjectRepository(UserSession)
+    private readonly sessionRepo: Repository<UserSession>,
+    @InjectRepository(UploadLog)
+    private readonly uploadLogRepo: Repository<UploadLog>
   ) {}
+
+  async getUser(user_id: string) {
+    try {
+      const findUser = await this.usersRepo.findOne({
+        where: { id: user_id },
+      });
+
+      if (!findUser) {
+        return {
+          status: 400,
+          message: "User do not found.",
+        };
+      }
+
+      console.log("findUser: ", findUser);
+
+      return {
+        status: 200,
+        message: "Fetched User successfully",
+        user: {
+          user_id: findUser.id,
+          display_name: findUser.display_name,
+          email: findUser.email,
+          dob: findUser.dob,
+          gender: findUser.gender,
+          mobile_no: findUser.mobile_no,
+          profile_photo: findUser.profile_photo,
+          username: findUser.username,
+        },
+      };
+    } catch (error) {
+      console.log("error", error);
+
+      return {
+        status: 500,
+        message: "Error occured during fetching the user.",
+        error_message: error.message,
+      };
+    }
+  }
 
   async getUserById(user_id: string) {
     try {
@@ -21,10 +68,10 @@ export class UsersService {
         where: { id: user_id },
       });
 
-      if (findUser) {
+      if (!findUser) {
         return {
           status: 400,
-          message: "User already register with us.",
+          message: "User do not found.",
         };
       }
 
@@ -48,7 +95,11 @@ export class UsersService {
     try {
       // Check if user already registered?
       const findUsers = await this.usersRepo.find({
-        where: { email: text },
+        where: [
+          { display_name: Like(`%${text}%`) },
+          { email: Like(`%${text}%`) },
+          { mobile_no: Like(`%${text}%`) },
+        ],
       });
 
       return {
@@ -135,7 +186,11 @@ export class UsersService {
     }
   }
 
-  async updateUser(user_id: string, updateUserDto: UpdateUserDto) {
+  async updateUser(
+    user_id: string,
+    updateUserDto: UpdateUserDto,
+    user_photo?: Express.Multer.File
+  ) {
     try {
       // Check if user already registered?
       const findUser = await this.usersRepo.findOne({
@@ -149,15 +204,64 @@ export class UsersService {
         };
       }
 
+      // upload image if post_photo exist
+      if (user_photo) {
+        const imageBuffer = user_photo.buffer.toString("base64");
+
+        const postImageUri = `data:${user_photo.mimetype};base64,${imageBuffer}`;
+
+        const uploadPostImage = await cloudinary.uploader.upload(postImageUri, {
+          unique_filename: true,
+          overwrite: true,
+          folder: `MergerApp/users/${user_id}`,
+        });
+
+        console.log("uploadPostImage: ", uploadPostImage);
+
+        if (!uploadPostImage || !uploadPostImage.asset_id) {
+          return {
+            status: 500,
+            message: "Error occured during uploading the user image.",
+          };
+        }
+
+        //create upload log
+        const tempUploadLogData = this.uploadLogRepo.create();
+
+        tempUploadLogData.status = UploadStatus.UPLOADED;
+        tempUploadLogData.post_id = findUser.id;
+        tempUploadLogData.asset_id = uploadPostImage?.asset_id;
+        tempUploadLogData.public_id = uploadPostImage?.public_id;
+        tempUploadLogData.signature = uploadPostImage?.signature;
+        tempUploadLogData.asset_folder = uploadPostImage?.asset_folder;
+        tempUploadLogData.file_name =
+          uploadPostImage?.display_name + "." + uploadPostImage?.format;
+        tempUploadLogData.resource_type = uploadPostImage?.resource_type;
+        tempUploadLogData.secure_url = uploadPostImage?.secure_url;
+        tempUploadLogData.bytes = uploadPostImage?.bytes;
+        tempUploadLogData.uploaded_at = new Date(uploadPostImage?.created_at);
+
+        const uploadLogData = await this.uploadLogRepo.save(tempUploadLogData);
+
+        if (!uploadLogData) {
+          return {
+            status: 500,
+            message: "Error occured during creating the upload log.",
+          };
+        }
+
+        findUser.profile_photo = uploadPostImage?.secure_url;
+      }
+
+      // Hashing password before storing in DB
       if (updateUserDto.signup_password) {
-        // Hashing password before storing in DB
         const saltRound = 10;
         const hash = await bcrypt.hash(
           updateUserDto.signup_password,
           saltRound
         );
 
-        updateUserDto.signup_password = hash;
+        findUser.password = hash;
       }
 
       // Clearing the updateUserDto from null | undefined values
@@ -169,9 +273,7 @@ export class UsersService {
 
       console.log("updateUserDto: ", updateUserDto);
 
-      const updatedUserData = Object.assign(findUser, {
-        password: updateUserDto.signup_password,
-      });
+      const updatedUserData = { ...findUser, ...updateUserDto };
 
       console.log("updatedUserData: ", updatedUserData);
 

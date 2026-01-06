@@ -104,21 +104,12 @@ export type DeleteAccSchemaType = yup.InferType<typeof deleteAccSchema>;
 // Add post schema
 
 export const addPostSchema = yup.object({
-  post_date: yup
-    .date()
-    .required("Birthdate is required")
-    .max(new Date(Date.now()), "Post date can not be future date.")
-    .min(
-      new Date("1900-01-01"),
-      "Post date cannot be in the before 1900-01-01"
-    ),
-  post_text: yup
-    .string()
-    .required("Post description is required.")
-    .max(200, "Post text max length is 200 characters.  "),
+  post_title: yup.string().required("Post title is required."),
+  post_text: yup.string().required("Post description is required."),
   post_photo: yup
     .mixed()
     .optional()
+    .nullable()
     .test(
       "fileSize",
       "Photo file size must be less then 2 MB!",

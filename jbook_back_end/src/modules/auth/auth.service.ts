@@ -93,6 +93,7 @@ export class AuthService {
 
       return {
         status: 200,
+        user_id: finduser.id,
         session_id: createdSession.session_id,
         session_exp: createdSession.session_exp,
         access_token: createdSession.access_token,

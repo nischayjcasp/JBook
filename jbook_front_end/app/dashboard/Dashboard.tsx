@@ -4,42 +4,76 @@ import PostCard from "@/components/dashboard/PostCard";
 import { CircularProgress, Dialog, Pagination, TextField } from "@mui/material";
 import { Controller, useForm } from "react-hook-form";
 import { FaSearch } from "react-icons/fa";
-import {
-  DatePicker,
-  DateTimePicker,
-  LocalizationProvider,
-  renderTimeViewClock,
-} from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs from "dayjs";
 import { IoMdClose } from "react-icons/io";
-import defaultImage from "@/app/assets/images/sampleImage.webp";
-import Image from "next/image";
+import defaultImage from "@/app/assets/images/default-placeholder.jpg";
+import Image, { StaticImageData } from "next/image";
 import React, { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { VisuallyHiddenInput } from "@/app/dashboard/layout";
 import {
   addPostSchema,
+  AddPostSchemaType,
   userPhotoSupportedFormats,
 } from "@/lib/schemas/settings.schema";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { toast } from "react-toastify";
+import { fetchUserAPI, fetchUserData } from "@/services/user.serivce";
+import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/redux/store";
+import { setUserdata } from "@/redux/slices/userSlice";
+import {
+  fetchPostAllAPI,
+  fetchPostByIdAPI,
+  updatePostAPI,
+} from "@/services/post.service";
+import { PostData } from "@/services/post.type";
 
 const Dashboard = () => {
+  const dispatch = useDispatch();
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isFetchingPost, setIsFetchingPost] = useState<boolean>(true);
   const pageRef = useRef<HTMLDivElement | null>(null);
-  const [editDialog, setEditDialog] = useState<boolean>(false);
-  const posts = [
-    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 1, 2, 3, 4, 5,
-    6, 7, 8, 9, 10,
-  ];
-  const [PostPhoto, setPostPhoto] = useState<string | null>(null);
-  const [filteredPosts, setFilteredPosts] = useState<number[]>([]);
+  const [editDialog, setEditDialog] = useState<{
+    status: boolean;
+    post_id: string;
+  }>({
+    status: false,
+    post_id: "",
+  });
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [filteredPosts, setFilteredPosts] = useState<PostData[]>([]);
+  const [PostPhoto, setPostPhoto] = useState<string | StaticImageData | null>(
+    defaultImage
+  );
   const [pagination, setPagination] = useState<number>(1);
   const totalPagination = Math.ceil(posts.length / 9);
+  const userData = useSelector((state: RootState) => state.user.userData);
 
+  const fetchUserPostsData = async () => {
+    try {
+      const postDataRes = await fetchPostAllAPI();
+
+      console.log("postDataRes: ", postDataRes);
+
+      if (postDataRes && postDataRes.status === 200) {
+        setPosts(postDataRes.posts);
+        setFilteredPosts(postDataRes.posts.slice(0, 9));
+        // toast.success(postDataRes.message);
+      } else {
+        toast.error(postDataRes.message ?? "Something went wrong!");
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setIsFetchingPost(false);
+    }
+  };
+
+  // Fetch data
   useEffect(() => {
-    setFilteredPosts(posts.slice(0, posts[9] ? 9 : undefined));
+    fetchUserData();
+    fetchUserPostsData();
   }, []);
 
   const handlePagination = (
@@ -74,12 +108,14 @@ const Dashboard = () => {
     handleSubmit: editPostSubmit,
     watch: postWatch,
     reset: editPostReset,
+    setValue: editPostSetValue,
     formState: { errors: editPostErrors },
   } = useForm({
     resolver: yupResolver(addPostSchema),
     defaultValues: {
-      post_date: new Date("2025-12-04"),
-      post_text: "SitaRAM",
+      post_title: "",
+      post_text: "",
+      post_photo: null,
     },
   });
 
@@ -90,31 +126,77 @@ const Dashboard = () => {
       const photoUrl = URL.createObjectURL(postPhoto);
       console.log("photoUrl", photoUrl);
       setPostPhoto(photoUrl);
-    } else setPostPhoto(null);
+    }
   }, [postPhoto]);
 
-  const openEditDialog = () => {
-    setEditDialog(true);
+  const openEditDialog = async (post_id: string) => {
+    setEditDialog({ status: true, post_id });
+    setLoading(true);
+    console.log("post_id: ", post_id);
+
+    // fetch the post data
+    try {
+      const fetchPostByIdRes = await fetchPostByIdAPI(post_id);
+
+      console.log("fetchPostByIdRes: ", fetchPostByIdRes);
+
+      if (fetchPostByIdRes.status === 200) {
+        editPostSetValue("post_title", fetchPostByIdRes.post.post_title);
+        editPostSetValue("post_text", fetchPostByIdRes.post.post_text);
+
+        if (fetchPostByIdRes.post.post_image) {
+          setPostPhoto(fetchPostByIdRes.post.post_image);
+        }
+      } else {
+        toast.error(fetchPostByIdRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const closeEditDialog = () => {
     if (!isLoading) {
-      setEditDialog(false);
+      setEditDialog({ status: false, post_id: "" });
       editPostReset();
+      setPostPhoto(defaultImage);
     }
   };
 
-  const onEditPost = async (data: any) => {
+  const onEditPost = async (data: AddPostSchemaType) => {
     console.log(data);
     setLoading(true);
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        setLoading(false);
-        toast.success("Post saved successfully.");
+
+    try {
+      let updatePostData = new FormData();
+      updatePostData.append("post_title", data.post_title);
+      updatePostData.append("post_text", data.post_text);
+      if (data.post_photo) {
+        updatePostData.append("post_photo", data.post_photo as File);
+      }
+      const updatePostRes = await updatePostAPI(
+        editDialog.post_id,
+        updatePostData
+      );
+      console.log("updatePostRes: ", updatePostRes);
+      if (updatePostRes.status === 200) {
+        toast.success(updatePostRes.message);
         closeEditDialog();
-        resolve("done");
-      }, 5000);
-    });
+        window.location.reload();
+      } else {
+        toast.error(updatePostRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   //handle Post serach
@@ -123,11 +205,11 @@ const Dashboard = () => {
   return (
     <>
       <div
-        className="w-full flex flex-col gap-5 max-h-screen overflow-y-auto"
+        className="w-full h-full flex flex-col gap-5 max-h-screen overflow-y-auto"
         ref={pageRef}
       >
         {/* Search bar */}
-        <div className="w-full bg-white py-5 sticky top-0 left-0 right-0">
+        <div className="w-full bg-white py-5 sticky top-0 left-0 right-0 z-10 shadow-sm">
           <form
             onSubmit={handleSubmit(onSearch)}
             className="mx-auto relative w-sm sm:w-lg lg:w-xl"
@@ -149,12 +231,27 @@ const Dashboard = () => {
         </div>
 
         {/* List of post */}
-        <div className={`px-16 flex-1 inline-grid grid-cols-3 gap-5`}>
+        <div className="relative px-16 flex-1 grid grid-cols-3 auto-rows-fr gap-5">
+          {isFetchingPost && (
+            <div className="absolute inset-0 z-10 flex justify-center items-center">
+              <CircularProgress
+                size="34px"
+                sx={{
+                  "&.MuiCircularProgress-root": {
+                    color: "#e1533c",
+                  },
+                }}
+              />
+            </div>
+          )}
+
           {filteredPosts &&
-            filteredPosts.map((posts, inx) => (
+            !isFetchingPost &&
+            filteredPosts.map((post, inx) => (
               <PostCard
                 key={`user-post-${inx}`}
                 openEditDialog={openEditDialog}
+                data={post}
               />
             ))}
         </div>
@@ -184,7 +281,7 @@ const Dashboard = () => {
       <Dialog
         fullWidth={true}
         maxWidth={"sm"}
-        open={editDialog}
+        open={editDialog.status}
         onClose={closeEditDialog}
         sx={{
           "& .MuiDialog-paper": {
@@ -226,37 +323,27 @@ const Dashboard = () => {
 
           {/* Edit Post Form */}
           <form className="w-full p-4" onSubmit={editPostSubmit(onEditPost)}>
-            {/* Post date */}
+            {/* Post title */}
             <div className="mb-2">
               <Controller
-                name="post_date"
+                name="post_title"
                 control={editPostControl}
                 render={({ field: { value, onChange, name } }) => (
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DateTimePicker
-                      name={name}
-                      label="Birthdate"
-                      format="DD-MM-YYYY HH:MM A"
-                      value={value ? dayjs(value) : dayjs("")}
-                      viewRenderers={{
-                        hours: renderTimeViewClock,
-                        minutes: renderTimeViewClock,
-                        seconds: renderTimeViewClock,
-                      }}
-                      onChange={onChange}
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          error: editPostErrors.post_date?.message
-                            ? true
-                            : false,
-                          helperText: editPostErrors.post_date?.message
-                            ? `${editPostErrors.post_date.message}`
-                            : " ",
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
+                  <TextField
+                    label="Post title"
+                    placeholder="Enter post title"
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    variant="outlined"
+                    className="w-full"
+                    error={editPostErrors.post_title?.message ? true : false}
+                    helperText={
+                      editPostErrors.post_title?.message
+                        ? `${editPostErrors.post_title.message}`
+                        : " "
+                    }
+                  />
                 )}
               />
             </div>
@@ -296,7 +383,7 @@ const Dashboard = () => {
                   <Controller
                     name="post_photo"
                     control={editPostControl}
-                    render={({ field: { name, value, onChange } }) => (
+                    render={({ field: { name, onChange } }) => (
                       <label>
                         <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white text-nowrap font-semibold cursor-pointer">
                           Choose photo
@@ -305,8 +392,9 @@ const Dashboard = () => {
                           type="file"
                           name={name}
                           onChange={(event) => {
-                            if (event.target.files)
+                            if (event.target.files) {
                               onChange(event.target.files[0]);
+                            }
                           }}
                         />
                       </label>
@@ -324,18 +412,27 @@ const Dashboard = () => {
                 </p>
               </div>
 
-              <div className="flex-1 mx-auto border border-slate-300 rounded-lg">
-                <Image
-                  src={
-                    !editPostErrors.post_photo?.message && PostPhoto
-                      ? PostPhoto
-                      : defaultImage
-                  }
-                  alt="Post image"
-                  width={500}
-                  height={300}
-                  className="h-auto max-h-[300px] rounded-lg"
-                />
+              <div className="relative w-full h-[300px] max-h-[300px] mx-auto border border-slate-300 rounded-lg">
+                {PostPhoto ? (
+                  <Image
+                    src={PostPhoto}
+                    alt="Post image"
+                    width={500}
+                    height={300}
+                    className="w-full h-auto max-h-[300px] rounded-lg"
+                  />
+                ) : (
+                  <div className="absolute inset-0 z-10 flex justify-center items-center">
+                    <CircularProgress
+                      size="34px"
+                      sx={{
+                        "&.MuiCircularProgress-root": {
+                          color: "#e1533c",
+                        },
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
 

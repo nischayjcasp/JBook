@@ -52,7 +52,7 @@ const ViewPost = ({ data }: { data: ViewPostProps }) => {
   } = useForm({
     resolver: yupResolver(addPostSchema),
     defaultValues: {
-      post_date: new Date("2025-12-04"),
+      post_title: "Post title",
       post_text: "SitaRAM",
     },
   });
@@ -190,34 +190,24 @@ const ViewPost = ({ data }: { data: ViewPostProps }) => {
             {/* Post date */}
             <div className="mb-2">
               <Controller
-                name="post_date"
+                name="post_title"
                 control={editPostControl}
                 render={({ field: { value, onChange, name } }) => (
-                  <LocalizationProvider dateAdapter={AdapterDayjs}>
-                    <DateTimePicker
-                      name={name}
-                      label="Birthdate"
-                      format="DD-MM-YYYY HH:MM A"
-                      value={value ? dayjs(value) : dayjs("")}
-                      viewRenderers={{
-                        hours: renderTimeViewClock,
-                        minutes: renderTimeViewClock,
-                        seconds: renderTimeViewClock,
-                      }}
-                      onChange={onChange}
-                      slotProps={{
-                        textField: {
-                          fullWidth: true,
-                          error: editPostErrors.post_date?.message
-                            ? true
-                            : false,
-                          helperText: editPostErrors.post_date?.message
-                            ? `${editPostErrors.post_date.message}`
-                            : " ",
-                        },
-                      }}
-                    />
-                  </LocalizationProvider>
+                  <TextField
+                    label="Post title"
+                    placeholder="Enter post title"
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    variant="outlined"
+                    className="w-full"
+                    error={editPostErrors.post_title?.message ? true : false}
+                    helperText={
+                      editPostErrors.post_title?.message
+                        ? `${editPostErrors.post_title.message}`
+                        : " "
+                    }
+                  />
                 )}
               />
             </div>
