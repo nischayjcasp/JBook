@@ -13,7 +13,11 @@ import { SessionService } from "../session/session.service";
 import { SessionData } from "../session/session.type";
 import axios from "axios";
 import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
-import { GoogleTokenResType, GoogleUserInfoType } from "./auth.type";
+import {
+  GoogleTokenResType,
+  GoogleUserInfoType,
+  SignUpResType,
+} from "./auth.type";
 import { SignUpWithGoogleDto } from "./dto/signUpWithGoogle.dto";
 import { UserSession } from "../session/entities/user_session.entity";
 import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
@@ -386,7 +390,7 @@ export class AuthService {
   async signupWithEmail(
     signUpWithEmailDto: SignUpWithEmailDto,
     device_id: string
-  ) {
+  ): Promise<SignUpResType> {
     try {
       const createUserRes = await this.usersService.createUser({
         signup_display_name: signUpWithEmailDto.signup_username,
@@ -423,10 +427,14 @@ export class AuthService {
           access_token_exp: createdSession.access_token_exp,
         };
       } else {
-        return {
-          status: 500,
-          message: "Error occured during creating the user.",
-        };
+        if (createUserRes && createUserRes.status === 500) {
+          return {
+            status: 500,
+            message: "Error occured during creating the user.",
+          };
+        } else {
+          return createUserRes;
+        }
       }
     } catch (error) {
       console.log("error", error);
@@ -443,7 +451,7 @@ export class AuthService {
     signUpWithGoogleDto: SignUpWithGoogleDto,
     authCode: string,
     device_id: string
-  ) {
+  ): Promise<SignUpResType> {
     console.log("authCode: ", authCode);
 
     try {
@@ -513,10 +521,14 @@ export class AuthService {
             access_token_exp: createdSession.access_token_exp,
           };
         } else {
-          return {
-            status: 500,
-            message: "Error occured during creating the user.",
-          };
+          if (createUserRes && createUserRes.status === 500) {
+            return {
+              status: 500,
+              message: "Error occured during creating the user.",
+            };
+          } else {
+            return createUserRes;
+          }
         }
       } else {
         return {
@@ -534,7 +546,7 @@ export class AuthService {
     signUpWithFacebookDto: SignUpWithGoogleDto,
     access_token: string,
     device_id: string
-  ) {
+  ): Promise<SignUpResType> {
     console.log("access_token: ", access_token);
 
     try {
@@ -596,10 +608,14 @@ export class AuthService {
             access_token_exp: createdSession.access_token_exp,
           };
         } else {
-          return {
-            status: 500,
-            message: "Error occured during creating the user.",
-          };
+          if (createUserRes && createUserRes.status === 500) {
+            return {
+              status: 500,
+              message: "Error occured during creating the user.",
+            };
+          } else {
+            return createUserRes;
+          }
         }
       } else {
         return { status: 500, message: "Failed to sign up with facebook!" };
@@ -614,7 +630,7 @@ export class AuthService {
     signUpWithLinkedInDto: SignUpWithGoogleDto,
     authCode: string,
     device_id: string
-  ) {
+  ): Promise<SignUpResType> {
     try {
       // Get Linked In access token
       const linkedInAccessTokenRes = await axios.post(
@@ -708,10 +724,14 @@ export class AuthService {
             access_token_exp: createdSession.access_token_exp,
           };
         } else {
-          return {
-            status: 500,
-            message: "Error occured during creating the user.",
-          };
+          if (createUserRes && createUserRes.status === 500) {
+            return {
+              status: 500,
+              message: "Error occured during creating the user.",
+            };
+          } else {
+            return createUserRes;
+          }
         }
       } else {
         return {

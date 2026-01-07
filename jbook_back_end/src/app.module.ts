@@ -78,7 +78,8 @@ export class AppModule implements NestModule {
         { path: "/auth/login/*splat", method: RequestMethod.ALL },
         { path: "/auth/signup/*splat", method: RequestMethod.ALL },
         { path: "auth/forgot/password", method: RequestMethod.ALL },
-        { path: "/auth/refresh/token", method: RequestMethod.ALL }
+        { path: "/auth/refresh/token", method: RequestMethod.ALL },
+        { path: "/auth/reset/password", method: RequestMethod.ALL }
       )
       .forRoutes("*");
   }

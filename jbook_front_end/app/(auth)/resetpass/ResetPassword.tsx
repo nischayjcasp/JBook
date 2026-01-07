@@ -6,7 +6,7 @@ import jcaspLogo from "@/app/assets/logos/imgi_4_JCasp-logo-homepage.svg";
 import { FaQuoteLeft, FaQuoteRight } from "react-icons/fa";
 import { Controller, useForm } from "react-hook-form";
 import TextField from "@mui/material/TextField";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import InputAdornment from "@mui/material/InputAdornment";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
@@ -78,7 +78,6 @@ const ResetPassword = () => {
       if (resetPasswordRes.status === 200) {
         resetPassReset();
         router.replace("/login");
-        toast.error(resetPasswordRes.message);
         toast.success(resetPasswordRes.message);
       } else if (
         resetPasswordRes.status === 400 ||

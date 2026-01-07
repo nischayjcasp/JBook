@@ -35,7 +35,7 @@ export class AuthMiddleware implements NestMiddleware {
       const verifyAccessToken =
         await this.sessionService.verifyAccessToken(access_token);
 
-      // console.log("verifyAccessToken: ", verifyAccessToken);
+      console.log("verifyAccessToken: ", verifyAccessToken);
 
       if (verifyAccessToken && verifyAccessToken.sub) {
         // get sesion info
@@ -44,10 +44,7 @@ export class AuthMiddleware implements NestMiddleware {
         });
 
         if (!findSession) {
-          return {
-            status: 500,
-            message: "User has no active session!",
-          };
+          throw new InternalServerErrorException("User has no active session!");
         }
 
         // console.log("findSession: ", findSession);
@@ -57,10 +54,9 @@ export class AuthMiddleware implements NestMiddleware {
         });
 
         if (!findUser) {
-          return {
-            status: 400,
-            message: "User do not found.",
-          };
+          throw new InternalServerErrorException(
+            "AuthMiddleware:Internal server error"
+          );
         }
 
         // console.log("findUser: ", findUser);
@@ -72,11 +68,20 @@ export class AuthMiddleware implements NestMiddleware {
 
         next();
       } else {
+        console.log("Here...");
+
         throw new UnauthorizedException("Unauthorized request!");
       }
     } catch (error) {
-      console.log("Error: ", error);
-      throw new InternalServerErrorException(error.message);
+      console.log("Error: ", error.name);
+
+      if (error.name === "UnauthorizedException") {
+        throw new UnauthorizedException("Unauthorized request!");
+      }
+
+      throw new InternalServerErrorException(
+        "AuthMiddleware:Internal server error"
+      );
     }
   }
 }

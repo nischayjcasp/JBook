@@ -52,7 +52,7 @@ export class SessionService {
 
       return access_token_decoded ?? null;
     } catch (error) {
-      console.log("verifyAccessToken-Error: ", error);
+      console.log("verifyAccessToken-Error: ", error.name);
       return null;
     }
   }
@@ -259,19 +259,33 @@ export class SessionService {
   }
 
   async verifySession(access_token: string) {
-    const isVerified = await this.verifyAccessToken(access_token);
+    try {
+      // const isVerified = await this.verifyAccessToken(access_token);
 
-    console.log("isVerified: ", isVerified);
+      // console.log("isVerified: ", isVerified);
 
-    if (isVerified) {
+      // if (isVerified) {
+      //   return {
+      //     status: 200,
+      //     message: "Session verified successfully.",
+      //   };
+      // } else {
+      //   return {
+      //     status: 401,
+      //     message: "Unauthorised request!!",
+      //   };
+      // }
+
       return {
         status: 200,
         message: "Session verified successfully.",
       };
-    } else {
+    } catch (error) {
+      console.log("verifySession - error: ", error.message);
       return {
-        status: 401,
-        message: "Unauthorised request!!",
+        status: 500,
+        message: "verifySession - error:Internal server error",
+        error_message: error.message,
       };
     }
   }

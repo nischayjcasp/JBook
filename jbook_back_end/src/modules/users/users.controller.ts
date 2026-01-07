@@ -23,7 +23,7 @@ export class UsersController {
 
   @Get("fetch")
   async getUserCntr(@Req() req: Request) {
-    return await this.usersService.getUser(req.user?.user_id as string);
+    return this.usersService.getUser(req.user?.user_id as string);
   }
 
   @Get("fetch/:id")
@@ -35,17 +35,17 @@ export class UsersController {
       };
     }
 
-    return await this.usersService.getUserById(user_id);
+    return this.usersService.getUserById(user_id);
   }
 
   @Get("fetch/all")
   async findUserByEmailCntr(@Query("search") text: string) {
-    return await this.usersService.findUserByEmail(text);
+    return this.usersService.findUserByEmail(text);
   }
 
   @Post("create")
   async createUserCntr(@Body() createUserDto: Partial<CreateUserDto>) {
-    return await this.usersService.createUser(createUserDto);
+    return this.usersService.createUser(createUserDto);
   }
 
   @Post("update/:id")
@@ -57,7 +57,7 @@ export class UsersController {
   ) {
     console.log("user_photo: ", user_photo);
 
-    return await this.usersService.updateUser(id, updateUserDto, user_photo);
+    return this.usersService.updateUser(id, updateUserDto, user_photo);
   }
 
   @Delete("delete/:id")
@@ -69,6 +69,6 @@ export class UsersController {
       };
     }
 
-    return await this.usersService.deleteUser(user_id);
+    return this.usersService.deleteUser(user_id);
   }
 }

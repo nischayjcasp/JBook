@@ -13,6 +13,11 @@ export interface LoginApiRes {
   error_message?: string;
   access_token?: string;
   user_id?: string;
+  userData?: {
+    user_email: string;
+    user_photo: string | null;
+    userName: string;
+  };
 }
 
 export interface EmailSignupPayloadType {

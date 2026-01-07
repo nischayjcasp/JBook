@@ -10,6 +10,7 @@ const isAuthenticated = async () => {
     if (!access_token || !session) {
       return false;
     }
+
     const verifySessionRes = await verifySessionAPI(access_token);
 
     console.log("verifySessionRes: ", verifySessionRes);
@@ -20,7 +21,8 @@ const isAuthenticated = async () => {
       return false;
     }
   } catch (error) {
-    console.log("Error: ", error);
+    const err = error as { message: string };
+    console.log("isAuthenticated - Error: ", err.message);
     return false;
   }
 };

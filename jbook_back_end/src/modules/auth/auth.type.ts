@@ -16,3 +16,18 @@ export interface GoogleUserInfoType {
   email: string;
   email_verified: boolean;
 }
+
+export interface SignUpResType {
+  status: number;
+  message?: string;
+  userData?: {
+    user_email: string;
+    user_photo: string | null;
+    userName: string;
+  };
+  session_id?: string;
+  session_exp?: Date;
+  access_token?: string;
+  access_token_exp?: Date;
+  error_message?: string;
+}

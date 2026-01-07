@@ -521,7 +521,7 @@ export class AuthController {
 
     if (refreshTokenRes.status === 200) {
       res.header("Set-Cookie", [
-        `MERGER_ACCESS_TOKEN=${refreshTokenRes.access_token}; Expire:${refreshTokenRes.access_token_exp?.toUTCString()}; HttpOnly; ${process.env.APP_ENV === "production" ? "Secure;" : ""} Path:/; SameSite=Strict`,
+        `MERGER_ACCESS_TOKEN=${refreshTokenRes.access_token}; Expire=${refreshTokenRes.access_token_exp?.toUTCString()}; httponly=true; ${process.env.APP_ENV === "production" ? "secure=true;" : ""} path=/; samesite=Strict`,
       ]);
 
       res.json({

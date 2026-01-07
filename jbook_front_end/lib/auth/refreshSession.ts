@@ -1,3 +1,5 @@
+"use server";
+
 import { refreshSessionAPI } from "@/services/auth.service";
 import { cookies } from "next/headers";
 
@@ -9,23 +11,29 @@ export const refreshSession = async (session_id: string): Promise<boolean> => {
     console.log("refreshTokenRes: ", refreshTokenRes.data);
 
     const setCookieHeader = refreshTokenRes.headers["set-cookie"];
-
-    console.log("setCookieHeader: ", setCookieHeader);
+    // d
 
     if (!setCookieHeader) {
       return false;
     }
 
-    const access_token = (setCookieHeader as any).split(";")[0].split("=")[1];
+    console.log(
+      "setCookieHeader: ",
+      typeof setCookieHeader,
+      setCookieHeader.toString().split(";")
+    );
 
-    console.log("access_token: ", access_token);
-
-    cookieStore.set("MERGER_ACCESS_TOKEN", access_token, {
-      httpOnly: true,
-      sameSite: "strict",
-      path: "/",
-      expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
+    cookieStore.set(
+      setCookieHeader.toString().split("=")[0],
+      setCookieHeader?.toString().split("=")[1].split(";")[0],
+      {
+        httpOnly: true,
+        secure: false,
+        path: "/",
+        sameSite: "strict",
+        expires: new Date(Date.now() + 15 * 60 * 1000),
+      }
+    );
 
     if (refreshTokenRes.data.status === 200) {
       console.log("Refreshed");

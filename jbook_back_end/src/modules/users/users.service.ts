@@ -125,10 +125,17 @@ export class UsersService {
         where: { email: createUserDto.signup_email },
       });
 
+      console.log("findUser: ", findUser);
+
       if (findUser) {
         return {
           status: 400,
           message: "User already register with us.",
+          userData: {
+            user_email: findUser.email,
+            user_photo: findUser.profile_photo,
+            userName: findUser.display_name,
+          },
         };
       }
 

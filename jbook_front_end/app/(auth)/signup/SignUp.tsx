@@ -38,8 +38,10 @@ import {
 } from "@/services/auth.type";
 import {
   emailSingupAPI,
+  facebookLoginAPI,
   facebookSingupAPI,
   getDeivceIpAPI,
+  googleLoginAPI,
   googleSingupAPI,
   linkedInSingupAPI,
 } from "@/services/auth.service";
@@ -51,7 +53,18 @@ const SignUp = () => {
   const dispatch = useDispatch();
   const [signUpPassEye, setSignUpPassEye] = useState<boolean>(false);
   const [signUpCPassEye, setSignUpCPassEye] = useState<boolean>(false);
-  const [alreadyHaveAccount, setAlreadyHaveAccount] = useState<boolean>(false);
+  const [alreadyHaveAccount, setAlreadyHaveAccount] = useState<{
+    flag: boolean;
+    provider?: string;
+    code?: string;
+    userData?: {
+      user_email: string;
+      user_photo: string | null;
+      userName: string;
+    };
+  }>({
+    flag: false,
+  });
   const [isLoading, setLoading] = useState<boolean>(false);
   const [isLoadingGoogle, setLoadingGoogle] = useState<boolean>(false);
   const [isLoadingFacebook, setLoadingFacebook] = useState<boolean>(false);
@@ -163,7 +176,9 @@ const SignUp = () => {
         toast.success(emailSignupRes.message);
         router.replace("/dashboard");
       } else {
-        toast.error(emailSignupRes.message);
+        if (emailSignupRes.status === 400) {
+          toast.error(emailSignupRes.message);
+        }
       }
     } catch (error: unknown) {
       console.log("Error: ", error);
@@ -214,7 +229,14 @@ const SignUp = () => {
         router.replace("/dashboard");
         setLoadingGoogle(false);
       } else {
-        toast.error(googleSignupRes.message);
+        if (googleSignupRes.status === 400) {
+          setAlreadyHaveAccount({
+            flag: true,
+            provider: "google",
+            code: response.code,
+            userData: googleSignupRes.userData,
+          });
+        }
       }
     } catch (error) {
       console.log("Error: ", error);
@@ -305,14 +327,65 @@ const SignUp = () => {
   };
 
   const closeAlreadyHaveAccDialog = () => {
-    setAlreadyHaveAccount(false);
+    setAlreadyHaveAccount({ flag: false });
   };
 
-  const handleOneClickLogin = () => {
+  const handleOneClickLogin = async () => {
     closeAlreadyHaveAccDialog();
     console.log("One click login");
 
-    toast.success("You have logged in successfully.");
+    if (!alreadyHaveAccount.code) {
+      toast.error("Unauthorized provider login!");
+      return;
+    }
+
+    const deviceIpRes = await getDeivceIpAPI();
+    const deviceIp = await DeviceLocation();
+
+    switch (alreadyHaveAccount?.provider) {
+      case "google": {
+        const payload: GoogleSignupPayload = {
+          authCode: alreadyHaveAccount.code,
+          user_agent: navigator.userAgent,
+          device_ip: deviceIpRes.data?.ip ?? null,
+          device_lat: deviceIp.lat,
+          device_long: deviceIp.long,
+        };
+
+        const googleLoginRes = await googleLoginAPI(payload);
+
+        console.log("googleSignupRes: ", googleLoginRes);
+
+        if (googleLoginRes.status === 200) {
+          toast.success(googleLoginRes.message);
+          router.replace("/dashboard");
+        } else {
+          toast.error(googleLoginRes.message);
+        }
+        break;
+      }
+      case "facebook":
+        {
+          const payload: FacebookSignupPayload = {
+            access_token: alreadyHaveAccount.code,
+            user_agent: navigator.userAgent,
+            device_ip: deviceIpRes.data?.ip ?? null,
+            device_lat: deviceIp.lat,
+            device_long: deviceIp.long,
+          };
+          const facebookSignupRes = await facebookLoginAPI(payload);
+
+          console.log("facebookSignupRes: ", facebookSignupRes);
+
+          if (facebookSignupRes.status === 200) {
+            toast.success(facebookSignupRes.message);
+            router.replace("/dashboard");
+          } else {
+            toast.error(facebookSignupRes.message);
+          }
+        }
+        break;
+    }
   };
 
   return (
@@ -717,7 +790,7 @@ const SignUp = () => {
 
       {/* Already have account dialog */}
       <Dialog
-        open={alreadyHaveAccount}
+        open={alreadyHaveAccount.flag}
         onClose={closeAlreadyHaveAccDialog}
         sx={{
           "& .MuiDialog-paper": {
@@ -737,7 +810,8 @@ const SignUp = () => {
             Choose a account to continue
           </p>
           <p className="text-sm text-center">
-            your email <b>{"abc@gmail.com"}</b> is connected to :
+            your email <b>{alreadyHaveAccount.userData?.user_email}</b> is
+            connected to :
           </p>
           <ul className="py-5 flex flex-col items-center">
             <li className="w-full">
@@ -749,10 +823,15 @@ const SignUp = () => {
                 <div className="flex items-center gap-4">
                   <Avatar
                     alt="Username"
-                    src={"/userDefaultPic.jpg"}
+                    src={
+                      alreadyHaveAccount.userData?.user_photo ??
+                      "/userDefaultPic.jpg"
+                    }
                     sx={{ width: 30, height: 30 }}
                   />
-                  <p className="text-sm">User name</p>
+                  <p className="text-sm">
+                    {alreadyHaveAccount.userData?.userName}
+                  </p>
                 </div>
                 <p className="p-1.5">
                   <GoArrowRight className="text-xl" />

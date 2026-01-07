@@ -175,9 +175,11 @@ const Dashboard = () => {
       let updatePostData = new FormData();
       updatePostData.append("post_title", data.post_title);
       updatePostData.append("post_text", data.post_text);
+
       if (data.post_photo) {
         updatePostData.append("post_photo", data.post_photo as File);
       }
+
       const updatePostRes = await updatePostAPI(
         editDialog.post_id,
         updatePostData
@@ -231,7 +233,7 @@ const Dashboard = () => {
         </div>
 
         {/* List of post */}
-        <div className="relative px-16 flex-1 grid grid-cols-3 auto-rows-fr gap-5">
+        <div className="relative px-16 flex-1">
           {isFetchingPost && (
             <div className="absolute inset-0 z-10 flex justify-center items-center">
               <CircularProgress
@@ -245,15 +247,23 @@ const Dashboard = () => {
             </div>
           )}
 
-          {filteredPosts &&
-            !isFetchingPost &&
-            filteredPosts.map((post, inx) => (
-              <PostCard
-                key={`user-post-${inx}`}
-                openEditDialog={openEditDialog}
-                data={post}
-              />
-            ))}
+          <div className="grid grid-cols-3 auto-rows-fr gap-5">
+            {filteredPosts &&
+              !isFetchingPost &&
+              filteredPosts.map((post, inx) => (
+                <PostCard
+                  key={`user-post-${inx}`}
+                  openEditDialog={openEditDialog}
+                  data={post}
+                />
+              ))}
+          </div>
+
+          {!filteredPosts && (
+            <p className="py-5 text-center text-red-500 text-xl">
+              No post found.
+            </p>
+          )}
         </div>
 
         {/* Pagination */}
