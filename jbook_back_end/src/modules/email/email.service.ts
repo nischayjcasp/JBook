@@ -10,6 +10,9 @@ import { convert } from "html-to-text";
 import { ResetPasswordLog } from "../auth/entities/resetPassword.entity";
 import { ForgotPasswordDto } from "../auth/dto/forgotPassword.dto";
 import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
+import { OtpEmailDto } from "./dto/otpEmail.dto";
+import { OTP } from "../auth/entities/otp.entity";
+import { Users } from "../users/entities/user.entity";
 
 @Injectable()
 export class EmailService {
@@ -18,6 +21,10 @@ export class EmailService {
     private readonly emailLogRepo: Repository<EmailLogs>,
     @InjectRepository(ResetPasswordLog)
     private readonly resetPasswordRepo: Repository<ResetPasswordLog>,
+    @InjectRepository(OTP)
+    private readonly otpRepo: Repository<OTP>,
+    @InjectRepository(Users)
+    private readonly usersRepo: Repository<Users>,
     private readonly mailService: MailerService,
     private readonly sessionService: SessionService
   ) {}
@@ -157,6 +164,111 @@ export class EmailService {
       }
     } catch (error) {
       console.log("sentResetPasswordLink-Error: ", error);
+      return {
+        status: 500,
+        message: error.message,
+      };
+    }
+  }
+
+  async sentOtp(otpEmailDto: OtpEmailDto) {
+    try {
+      const digits: string = "0123456789";
+      const otp: number[] = [];
+
+      for (let i = 1; i <= 6; i++) {
+        otp.push(+digits[Math.floor(Math.random() * 10)]);
+      }
+
+      console.log("OTP: ", otp);
+
+      const otpEmailHTML = `
+      <html>
+        <body>
+            <p>Merger App, OTP for verification</p>
+            <br/>
+            <p style="font-size:30; font-weight:700; color:blue;">${otp.join(" ")}</p> 
+            <br/>
+            <p>Please do not share OTP with other.</p>
+            <br/>
+            <p>Merger App - Jcasp Technologies</p>
+        </body>
+      </html>
+      `;
+
+      const emailResp = await this.mailService.sendMail({
+        from: `Merger App <${process.env.GOOGLE_FROM_EMAIL}>`,
+        to: otpEmailDto.email,
+        subject: `Merger App OTP`,
+        html: otpEmailHTML,
+      });
+
+      if (emailResp.messageId) {
+        // Creating Email log
+        const html2textOptions = {
+          wordWrap: 130,
+          selectors: [{ selector: "img", format: "skip" }],
+        };
+        const emailMessageText = convert(otpEmailHTML, html2textOptions);
+
+        console.log("emailMessageText: ", emailMessageText);
+
+        const tempEmailLog = this.emailLogRepo.create();
+
+        tempEmailLog.address_to = otpEmailDto.email;
+        tempEmailLog.message = emailMessageText;
+        tempEmailLog.sent_at = new Date(Date.now());
+        tempEmailLog.status = EmailStatus.SENT;
+
+        const createEmailLog = await this.emailLogRepo.save(tempEmailLog);
+
+        if (!createEmailLog) {
+          return {
+            status: 500,
+            message: "Error occured while creating email log.",
+          };
+        }
+
+        console.log("createEmailLog: ", createEmailLog);
+
+        const findUser = await this.usersRepo.findOne({
+          where: {
+            email: otpEmailDto.email,
+          },
+        });
+
+        const otpLog = this.otpRepo.create();
+
+        otpLog.user_id = findUser?.id as string;
+        otpLog.email_log_id = createEmailLog.id;
+        otpLog.otp = otp.join("");
+        otpLog.is_otp_used = false;
+        otpLog.expires_at = new Date(Date.now() + 60 * 1000);
+        otpLog.device_id = otpEmailDto.device_id;
+        otpLog.device_ip = otpEmailDto.device_ip;
+        otpLog.device_lat = otpEmailDto.device_lat;
+        otpLog.device_long = otpEmailDto.device_long;
+        otpLog.device_os = otpEmailDto.device_os;
+        otpLog.device_type = otpEmailDto.device_type;
+
+        const otpLogRes = await this.otpRepo.save(otpLog);
+
+        if (!otpLogRes) {
+          return {
+            status: 500,
+            message: "Error occured while creating otp log.",
+          };
+        }
+
+        return { status: 200 };
+      } else {
+        return {
+          status: 500,
+          message: "Failed to sent email OTP",
+        };
+      }
+    } catch (error) {
+      console.log("sentOtp-Error: ", error);
       return {
         status: 500,
         message: error.message,

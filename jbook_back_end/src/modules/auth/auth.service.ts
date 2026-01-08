@@ -6,14 +6,15 @@ import {
 import { LoginWithEmailDto } from "./dto/loginWithEmail.dto";
 import { SignUpWithEmailDto } from "./dto/signUpWithEmail.dto";
 import { InjectRepository } from "@nestjs/typeorm";
-import { Repository } from "typeorm";
+import { Between, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
-import { Users } from "../users/entities/user.entity";
+import { AccountStatus, Users } from "../users/entities/user.entity";
 import { SessionService } from "../session/session.service";
 import { SessionData } from "../session/session.type";
 import axios from "axios";
 import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 import {
+  FailedLoginLogData,
   GoogleTokenResType,
   GoogleUserInfoType,
   SignUpResType,
@@ -25,28 +26,121 @@ import { EmailService } from "../email/email.service";
 import { ResetPasswordDto } from "./dto/resetPassword.dro";
 import { ResetPasswordLog } from "./entities/resetPassword.entity";
 import { UsersService } from "../users/users.service";
+import { FailedLoginLog } from "./entities/failedLoginLog.entity";
+import { ConfigService } from "@nestjs/config";
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(Users)
     private readonly usersRepo: Repository<Users>,
-
     @InjectRepository(UserSession)
     private readonly sessionRepo: Repository<UserSession>,
     @InjectRepository(ResetPasswordLog)
     private readonly resetPassRepo: Repository<ResetPasswordLog>,
+    @InjectRepository(FailedLoginLog)
+    private readonly failedLoginLogRepo: Repository<FailedLoginLog>,
     private readonly sessionService: SessionService,
     private readonly emailService: EmailService,
-    private readonly usersService: UsersService
+    private readonly usersService: UsersService,
+    private readonly configService: ConfigService
   ) {}
+
+  //<============== Failed logn attempt log ==============>
+  async failedLoginLog(failedLoginLogData: FailedLoginLogData) {
+    try {
+      // Get Device information
+      let deviceInfo: any = null;
+
+      //Get device information
+      if (failedLoginLogData.user_agent) {
+        deviceInfo = await DeviceInfo(failedLoginLogData.user_agent);
+      }
+
+      console.log("deviceInfo: ", deviceInfo);
+
+      const tempFailedLoginLogRes = this.failedLoginLogRepo.create({
+        user_id: failedLoginLogData.user_id,
+        device_id: failedLoginLogData.device_id,
+        device_os: deviceInfo.os.name ?? null,
+        device_type: deviceInfo.device.type ?? null,
+        device_ip: failedLoginLogData.device_ip,
+        device_lat: failedLoginLogData.device_lat,
+        device_long: failedLoginLogData.device_long,
+      });
+
+      const FailedLoginLogRes = await this.failedLoginLogRepo.save(
+        tempFailedLoginLogRes
+      );
+
+      // Calculate block time
+      const maxAttemps = this.configService.get("MAX_FAILED_ATTEMPTS");
+      const todayStart = new Date(Date.now());
+      todayStart.setHours(0, 0, 0, 0);
+
+      const todayEnd = new Date(Date.now());
+      todayEnd.setHours(23, 59, 59, 999);
+
+      const failedLogs = await this.failedLoginLogRepo.find({
+        where: {
+          user_id: failedLoginLogData.user_id,
+          created_at: Between(todayStart, todayEnd),
+        },
+      });
+
+      console.log("failedLogs.length", failedLogs.length);
+
+      const blockMul = failedLogs.length / maxAttemps;
+
+      // Check and block user if necessary
+      if (Number.isInteger(blockMul)) {
+        console.log("blockTime: ", blockMul * maxAttemps, "min");
+
+        const finduser = await this.usersRepo.findOne({
+          where: {
+            id: failedLoginLogData.user_id,
+          },
+        });
+
+        if (!finduser) {
+          return {
+            status: 401,
+            message: "Incorrect credentials!",
+          };
+        }
+
+        finduser.status = AccountStatus.BLOCKED;
+        finduser.block_expires_at = new Date(
+          Date.now() + blockMul * maxAttemps * 60 * 1000
+        );
+
+        const updatedUser = await this.usersRepo.save(finduser as Users);
+
+        return {
+          status: 429,
+          message: `Account is blocked till ${new Date(updatedUser.block_expires_at as Date).toLocaleString()}`,
+        };
+      } else {
+        console.log("blockMul: ", blockMul);
+        return {
+          status: 401,
+          message: "Incorrect credentials!",
+        };
+      }
+    } catch (error) {
+      console.log("Error", error);
+      throw new InternalServerErrorException(
+        "Error occured while updating failed login log."
+      );
+    }
+  }
 
   //<============== Login ==============>
 
   async loginWithEmail(
     loginWithEmailDto: LoginWithEmailDto,
     device_id: string
-  ) {
+  ): Promise<SignUpResType> {
     try {
       // finduser in DB
       const finduser = await this.usersRepo.findOne({
@@ -69,6 +163,33 @@ export class AuthService {
         };
       }
 
+      if (finduser.status === AccountStatus.BLOCKED) {
+        if (
+          new Date(finduser.block_expires_at as Date) >= new Date(Date.now())
+        ) {
+          return {
+            status: 429,
+            message: `Account is blocked till ${new Date(finduser.block_expires_at as Date).toLocaleString()}`,
+          };
+        } else {
+          finduser.status = AccountStatus.ACTIVE;
+          finduser.block_expires_at = null;
+
+          await this.usersRepo.save(finduser as Users);
+        }
+      }
+
+      const isNewDevice = this.emailVerificationNewDevice({
+        userId: finduser.id,
+        user_agent: loginWithEmailDto.user_agent,
+        device_id,
+        device_ip: loginWithEmailDto.device_ip as string,
+        device_lat: loginWithEmailDto.device_lat,
+        device_long: loginWithEmailDto.device_long,
+      });
+
+      console.log("isNewDevice: ", isNewDevice);
+
       //Check credentials
       const isMatching = await bcrypt.compare(
         loginWithEmailDto.login_password,
@@ -76,20 +197,27 @@ export class AuthService {
       );
 
       if (!isMatching) {
-        return {
-          status: 401,
-          message: "Incorrect credentials!",
-        };
+        const failedLogsRes = await this.failedLoginLog({
+          user_id: finduser.id,
+          device_id,
+          user_agent: loginWithEmailDto.user_agent,
+          device_ip: loginWithEmailDto.device_ip,
+          device_lat: loginWithEmailDto.device_lat,
+          device_long: loginWithEmailDto.device_long,
+        });
+
+        return failedLogsRes;
       }
 
       const sessionPayload: SessionData = {
         userId: finduser.id,
         device_id: device_id,
         user_agent: loginWithEmailDto.user_agent,
-        device_ip: loginWithEmailDto.device_ip as string,
+        device_ip: loginWithEmailDto.device_ip,
         device_lat: loginWithEmailDto.device_lat,
         device_long: loginWithEmailDto.device_long,
       };
+
       const createdSession =
         await this.sessionService.createSession(sessionPayload);
 
@@ -108,7 +236,7 @@ export class AuthService {
 
       return {
         status: 500,
-        messsage: "Internal server error: loginWithEmail",
+        message: "Internal server error: loginWithEmail",
       };
     }
   }
@@ -116,6 +244,7 @@ export class AuthService {
   async loginWithGoogle(
     loginWithGoogleDto: SignUpWithGoogleDto,
     authCode: string,
+    access_token: string | null,
     device_id: string
   ) {
     // Get Api to verify google access_token
@@ -124,25 +253,44 @@ export class AuthService {
     console.log("authCode: ", authCode);
 
     try {
-      // Get google access token
-      const googleTokenRes = await axios.post<Partial<GoogleTokenResType>>(
-        "https://oauth2.googleapis.com/token",
-        {
-          code: authCode,
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: "postmessage",
-          grant_type: "authorization_code",
+      let googleTokenRes: any | { data: { access_token: string | null } } = {
+        data: {
+          access_token,
         },
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        }
-      );
+      };
 
-      console.log("googleTokenRes: ", googleTokenRes.data);
+      if (!access_token) {
+        // Get google access token
+        googleTokenRes = await axios.post<Partial<GoogleTokenResType>>(
+          "https://oauth2.googleapis.com/token",
+          {
+            code: "4/0ATX87lPJHTrFrcez5u7IqyczCEAv3nAUCRoGvqEFzaVYGKL5O0c1TfyjhcQacy4OQcWVPQ",
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            redirect_uri: "postmessage",
+            grant_type: "authorization_code",
+          },
+          {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }
+        );
+
+        console.log("API-googleTokenRes: ", googleTokenRes.data);
+      }
+
+      console.log(
+        googleTokenRes.data,
+        googleTokenRes.data.access_token,
+        googleTokenRes.data && googleTokenRes.data.access_token
+      );
 
       // Get google user data from access_token
       if (googleTokenRes.data && googleTokenRes.data.access_token) {
+        console.log(
+          "googleTokenRes.data.access_token: ",
+          googleTokenRes.data.access_token
+        );
+
         const googleUserInfo = await axios.get<Partial<GoogleUserInfoType>>(
           "https://www.googleapis.com/oauth2/v3/userinfo",
           {
@@ -200,6 +348,9 @@ export class AuthService {
       return { status: 201, message: "You have signed up successfully." };
     } catch (error) {
       console.log("Error: ", error);
+
+      if (error.status === 400 || error.status === 401) {
+      }
       return { status: 500, message: error.message };
     }
   }
@@ -286,27 +437,38 @@ export class AuthService {
   async loginWithLinkedIn(
     loginWithLinkedInDto: SignUpWithGoogleDto,
     authCode: string,
+    access_token: string | null,
     device_id: string
   ) {
     try {
       console.log("authCode: ", authCode);
 
-      // Get Linked In access token
-      const linkedInAccessTokenRes = await axios.post(
-        "https://www.linkedin.com/oauth/v2/accessToken",
-        new URLSearchParams({
-          grant_type: "authorization_code",
-          code: authCode,
-          redirect_uri: process.env.LINKEDIN_LOGIN_REDIRECT_URI!,
-          client_id: process.env.LINKED_IN_CLIENT_ID!,
-          client_secret: process.env.LINKED_IN_CLIENT_SECRET!,
-        }),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        }
-      );
+      let linkedInAccessTokenRes:
+        | any
+        | { data: { access_token: string | null } } = {
+        data: {
+          access_token,
+        },
+      };
 
-      console.log("linkedInAccessTokenRes: ", linkedInAccessTokenRes.data);
+      if (!access_token) {
+        // Get Linked In access token
+        linkedInAccessTokenRes = await axios.post(
+          "https://www.linkedin.com/oauth/v2/accessToken",
+          new URLSearchParams({
+            grant_type: "authorization_code",
+            code: authCode,
+            redirect_uri: process.env.LINKEDIN_LOGIN_REDIRECT_URI!,
+            client_id: process.env.LINKED_IN_CLIENT_ID!,
+            client_secret: process.env.LINKED_IN_CLIENT_SECRET!,
+          }),
+          {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }
+        );
+
+        console.log("linkedInAccessTokenRes: ", linkedInAccessTokenRes.data);
+      }
 
       if (
         linkedInAccessTokenRes.data &&
@@ -450,30 +612,50 @@ export class AuthService {
   async signupWithGoogle(
     signUpWithGoogleDto: SignUpWithGoogleDto,
     authCode: string,
+    access_token: string | null,
     device_id: string
   ): Promise<SignUpResType> {
     console.log("authCode: ", authCode);
 
     try {
-      // Get google access token
-      const googleTokenRes = await axios.post<Partial<GoogleTokenResType>>(
-        "https://oauth2.googleapis.com/token",
-        {
-          code: authCode,
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_CLIENT_SECRET,
-          redirect_uri: "postmessage",
-          grant_type: "authorization_code",
+      let googleTokenRes: any | { data: { access_token: string | null } } = {
+        data: {
+          access_token,
         },
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        }
-      );
+      };
 
-      console.log("googleTokenRes: ", googleTokenRes.data);
+      if (!access_token) {
+        // Get google access token
+        googleTokenRes = await axios.post<Partial<GoogleTokenResType>>(
+          "https://oauth2.googleapis.com/token",
+          {
+            code: authCode,
+            client_id: process.env.GOOGLE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_CLIENT_SECRET,
+            redirect_uri: "postmessage",
+            grant_type: "authorization_code",
+          },
+          {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }
+        );
+
+        console.log("API-googleTokenRes: ", googleTokenRes.data);
+      }
+
+      console.log(
+        googleTokenRes.data,
+        googleTokenRes.data.access_token,
+        googleTokenRes.data && googleTokenRes.data.access_token
+      );
 
       // Get google user data from access_token
       if (googleTokenRes.data && googleTokenRes.data.access_token) {
+        console.log(
+          "googleTokenRes.data.access_token: ",
+          googleTokenRes.data.access_token
+        );
+
         const googleUserInfo = await axios.get<Partial<GoogleUserInfoType>>(
           "https://www.googleapis.com/oauth2/v3/userinfo",
           {
@@ -485,11 +667,14 @@ export class AuthService {
 
         console.log("googleUserInfo: ", googleUserInfo.data);
 
-        const createUserRes = await this.usersService.createUser({
-          signup_display_name: googleUserInfo.data.name as string,
-          signup_email: googleUserInfo.data.email as string,
-          profile_photo: googleUserInfo.data.picture ?? null,
-        });
+        const createUserRes = await this.usersService.createUser(
+          {
+            signup_display_name: googleUserInfo.data.name as string,
+            signup_email: googleUserInfo.data.email as string,
+            profile_photo: googleUserInfo.data.picture ?? null,
+          },
+          googleTokenRes.data.access_token
+        );
 
         console.log("createUserRes: ", createUserRes);
 
@@ -572,11 +757,14 @@ export class AuthService {
       // };
 
       if (faceebookUserInfo.data) {
-        const createUserRes = await this.usersService.createUser({
-          signup_display_name: faceebookUserInfo.data.name as string,
-          signup_email: faceebookUserInfo.data.email as string,
-          profile_photo: faceebookUserInfo.data.picture.data.url ?? null,
-        });
+        const createUserRes = await this.usersService.createUser(
+          {
+            signup_display_name: faceebookUserInfo.data.name as string,
+            signup_email: faceebookUserInfo.data.email as string,
+            profile_photo: faceebookUserInfo.data.picture.data.url ?? null,
+          },
+          access_token
+        );
 
         console.log("createUserRes: ", createUserRes);
 
@@ -629,33 +817,36 @@ export class AuthService {
   async signupWithLinkedIn(
     signUpWithLinkedInDto: SignUpWithGoogleDto,
     authCode: string,
+    access_token: string | null,
     device_id: string
   ): Promise<SignUpResType> {
     try {
-      // Get Linked In access token
-      const linkedInAccessTokenRes = await axios.post(
-        "https://www.linkedin.com/oauth/v2/accessToken",
-        new URLSearchParams({
-          grant_type: "authorization_code",
-          code: authCode,
-          redirect_uri: process.env.LINKEDIN_SINGUP_REDIRECT_URI!,
-          client_id: process.env.LINKED_IN_CLIENT_ID!,
-          client_secret: process.env.LINKED_IN_CLIENT_SECRET!,
-        }),
-        {
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        }
-      );
+      let linkedInAccessTokenRes:
+        | any
+        | { data: { access_token: string | null } } = {
+        data: {
+          access_token,
+        },
+      };
 
-      console.log("linkedInAccessTokenRes: ", linkedInAccessTokenRes.data);
+      if (!access_token) {
+        // Get Linked In access token
+        linkedInAccessTokenRes = await axios.post(
+          "https://www.linkedin.com/oauth/v2/accessToken",
+          new URLSearchParams({
+            grant_type: "authorization_code",
+            code: authCode,
+            redirect_uri: process.env.LINKEDIN_SINGUP_REDIRECT_URI!,
+            client_id: process.env.LINKED_IN_CLIENT_ID!,
+            client_secret: process.env.LINKED_IN_CLIENT_SECRET!,
+          }),
+          {
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          }
+        );
 
-      // const data: {
-      //   access_token: "AQVeq1YiCS0OkrXHCVG7GNnluMVcA-oX5oc6kWp6OatdQcPiu0zij7jUQwy0jsb6oPlYkBcT1QWbMBSpcY0y31qhl8H17CC20Ekp1HUAzskeHbGo4ua32ULJlYoH6SA8NblXbwSGIVXcavW7Ne21OP90QDbnM4gFM0N7-9i-jJON8lcUd8ikfe2a_qMGMhiP4f65L5ZJxNPPiZj3b2grzMhrpAMV-E1FRmd_jgq99oOnj71BO4ZGLQgfZJZzRGj9ujoAjSCeX1shHh7CfNyoNpUt5URuyTtRoJdqeMaWHsEq1mRacUVR0omvslsebuP3Zy1eJ_3hog9SxnC2-4i6hWp5DyVA-Q";
-      //   expires_in: 5184000;
-      //   scope: "email,openid,profile";
-      //   token_type: "Bearer";
-      //   id_token: "eyJ6aXAiOiJSUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6ImQ5Mjk2NjhhLWJhYjEtNGM2OS05NTk4LTQzNzMxNDk3MjNmZiIsImFsZyI6IlJTMjU2In0.eyJpc3MiOiJodHRwczovL3d3dy5saW5rZWRpbi5jb20vb2F1dGgiLCJhdWQiOiI3OGtvdmV5emk5N2UyeSIsImlhdCI6MTc2NzM1MjcwNywiZXhwIjoxNzY3MzU2MzA3LCJzdWIiOiJEZV9CYV85dHBOIiwibmFtZSI6Ik5pc2NoYXkgSkNhc3AiLCJnaXZlbl9uYW1lIjoiTmlzY2hheSIsImZhbWlseV9uYW1lIjoiSkNhc3AiLCJwaWN0dXJlIjoiaHR0cHM6Ly9tZWRpYS5saWNkbi5jb20vZG1zL2ltYWdlL3YyL0Q0RTAzQVFHWGo5UFFPVkppT0EvcHJvZmlsZS1kaXNwbGF5cGhvdG8tc2hyaW5rXzIwMF8yMDAvQjRFWnJvdmUzZEhFQWMtLzAvMTc2NDg0MTM1Mjk1ND9lPTE3NjkwNDAwMDAmdj1iZXRhJnQ9YURuUjRxUW5lcmV1ejVqZGFhNUJUQXoyZ001LU5xb3VHYXFkTDh5TGsyTSIsImVtYWlsIjoibmlzY2hheS5qY2FzcEBnbWFpbC5jb20iLCJlbWFpbF92ZXJpZmllZCI6InRydWUiLCJsb2NhbGUiOiJlbl9VUyJ9.xobtBJiYaKDcf6fQL4aivAEAKE-UZaY3VSj-dkCzczVkabd_2bOkPyjWD4mdFlNGcU6bNl97hjExIRWyDwW7fGfyS-4AOiphLk221a1G1VP6LSDACJGl0SAMnCZZdqBmw4ntBP5ovphROpDlHXG6g95K6Uvuqee3Sxe0UjqwuidKXpA5Td33qptDvCf8_Ih2MZxUo5nOPRc7gWkvE1jjDdkEc7GD-yrTQCRZxwwHPRxPaZ8PVUmn99-WuI7Q-DGX8hsZIzezUO-1i9NJkDX5R_VroF7vioL7VX2R0JQArQTJGp5Vxz7KBuYIXQXMKf7U9KuvBHLRxuzODD_WgTU-OHwBZZdYMno_w7i1zl1QyxqWuq6R66x1FYd4PplIzSqxWb0lETHgqNzApbVyUcecNPZxy3fSvcV2zavPdjGLe9rfjrROgfX7fraDH8-o4cSfmwXQCaDOSulMaN4r7ISDgjDDg6ATj5E3ZuNH16Ub7UQXSzLmwEXP1xdXq7HJKzPM3K0JaYhliF8otVLsZZPlJLZR0rW3vus4b3HDFO9NX-SFB9Pouw5JQFlpzT8ulMpTftMOKCxl0BTgBnb_ySRYI-iwFUHCitmtvGSB3b-g1Xsi6cjsHEbiRh9rrY3jvtNuNpXKyquYvGyUMSCcAWLAyU-50spy_0Jk61HoruA0VKY";
-      // };
+        console.log("linkedInAccessTokenRes: ", linkedInAccessTokenRes.data);
+      }
 
       if (
         linkedInAccessTokenRes.data &&
@@ -673,26 +864,14 @@ export class AuthService {
 
         console.log("linkedInProfileRes: ", linkedInProfileRes.data);
 
-        // const res = {
-        //   sub: "De_Ba_9tpN",
-        //   email_verified: true,
-        //   name: "Nischay JCasp",
-        //   locale: {
-        //     country: "US",
-        //     language: "en",
-        //   },
-        //   given_name: "Nischay",
-        //   family_name: "JCasp",
-        //   email: "nischay.jcasp@gmail.com",
-        //   picture:
-        //     "https://media.licdn.com/dms/image/v2/D4E03AQGXj9PQOVJiOA/profile-displayphoto-shrink_200_200/B4EZrove3dHEAc-/0/1764841352954?e=1769040000&v=beta&t=aDnR4qQnereuz5jdaa5BTAz2gM5-NqouGaqdL8yLk2M",
-        // };
-
-        const createUserRes = await this.usersService.createUser({
-          signup_display_name: linkedInProfileRes.data.name as string,
-          signup_email: linkedInProfileRes.data.email as string,
-          profile_photo: linkedInProfileRes.data.picture ?? null,
-        });
+        const createUserRes = await this.usersService.createUser(
+          {
+            signup_display_name: linkedInProfileRes.data.name as string,
+            signup_email: linkedInProfileRes.data.email as string,
+            profile_photo: linkedInProfileRes.data.picture ?? null,
+          },
+          linkedInAccessTokenRes.data.access_token
+        );
 
         console.log("createUserRes: ", createUserRes);
 
@@ -921,6 +1100,53 @@ export class AuthService {
         message: "Error occured while reseting password the user.",
         error_message: error.message,
       };
+    }
+  }
+
+  async emailVerificationNewDevice(emailVerifyPayload: SessionData) {
+    try {
+      let deviceInfo: any = null;
+
+      //Get device information
+      if (emailVerifyPayload.user_agent) {
+        deviceInfo = await DeviceInfo(emailVerifyPayload.user_agent);
+      }
+
+      console.log("deviceInfo: ", deviceInfo);
+
+      const findSessions = await this.sessionRepo.find({
+        where: {
+          id: emailVerifyPayload.userId,
+          device_id: emailVerifyPayload.device_id,
+        },
+      });
+
+      const findUser = await this.usersRepo.findOne({
+        where: {
+          id: emailVerifyPayload.userId,
+        },
+      });
+
+      const isNewDevice = findSessions.length > 0 ? false : true;
+
+      if (isNewDevice) {
+        const otpMailRes = await this.emailService.sentOtp({
+          email: findUser?.email as string,
+          device_id: emailVerifyPayload.device_id,
+          device_type: deviceInfo.device.type ?? null,
+          device_os: deviceInfo.os.name ?? null,
+          device_ip: emailVerifyPayload.device_ip,
+          device_lat: emailVerifyPayload.device_lat,
+          device_long: emailVerifyPayload.device_long,
+        });
+
+        console.log("otpMailRes: ", otpMailRes);
+
+        return { status: 200, message: "OTP sent on " };
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      return { status: 500 };
     }
   }
 }

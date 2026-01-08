@@ -2,7 +2,7 @@ export interface SessionData {
   userId: string;
   device_id: string;
   user_agent: string | null;
-  device_ip: string;
+  device_ip: string | null;
   device_lat: number | null;
   device_long: number | null;
 }

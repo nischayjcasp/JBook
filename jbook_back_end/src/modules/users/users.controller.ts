@@ -22,8 +22,16 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get("fetch")
-  async getUserCntr(@Req() req: Request) {
-    return this.usersService.getUser(req.user?.user_id as string);
+  async getUserCntr(@Req() req: Request, @Query("search") search: string) {
+    return this.usersService.getUser(req.user?.user_id as string, search);
+  }
+
+  @Get("fetch/emails")
+  async getUserEmailsCntr(
+    @Req() req: Request,
+    @Query("search") search: string
+  ) {
+    return this.usersService.getUserEmails(search);
   }
 
   @Get("fetch/:id")
@@ -36,11 +44,6 @@ export class UsersController {
     }
 
     return this.usersService.getUserById(user_id);
-  }
-
-  @Get("fetch/all")
-  async findUserByEmailCntr(@Query("search") text: string) {
-    return this.usersService.findUserByEmail(text);
   }
 
   @Post("create")

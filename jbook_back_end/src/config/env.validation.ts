@@ -130,6 +130,10 @@ class EnvVariables {
   @IsString()
   @IsNotEmpty()
   CLOUDINARY_API_SECRET: string;
+
+  @IsNumber()
+  @Min(3)
+  MAX_FAILED_ATTEMPTS: number;
 }
 
 // Validation function

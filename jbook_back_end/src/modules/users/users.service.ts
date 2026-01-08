@@ -4,7 +4,6 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Users } from "./entities/user.entity";
 import { Like, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
-import { DeviceInfo } from "src/common/utils/deviceInfo.utils";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { UserSession } from "../session/entities/user_session.entity";
 import { v2 as cloudinary } from "cloudinary";
@@ -21,8 +20,43 @@ export class UsersService {
     private readonly uploadLogRepo: Repository<UploadLog>
   ) {}
 
-  async getUser(user_id: string) {
+  async getUser(user_id: string, seatchText: string) {
     try {
+      // Find user by text and return emails only
+      if (seatchText) {
+        console.log("seatchText: ", seatchText);
+        let userArr: {
+          user_id: string;
+          email: string;
+          mobile: string | null;
+        }[] = [];
+
+        const findUsers = await this.usersRepo.find({
+          where: [
+            { display_name: Like(`%${seatchText}%`) },
+            { email: Like(`%${seatchText}%`) },
+            { mobile_no: Like(`%${seatchText}%`) },
+          ],
+        });
+
+        console.log("findUsers: ", findUsers);
+
+        findUsers.forEach((usr) => {
+          userArr.push({
+            user_id: usr.id,
+            email: usr.email,
+            mobile: usr.mobile_no,
+          });
+        });
+
+        return {
+          status: 200,
+          message: "Fetched User successfully",
+          users: userArr,
+        };
+      }
+
+      // Find user by id
       const findUser = await this.usersRepo.findOne({
         where: { id: user_id },
       });
@@ -50,6 +84,58 @@ export class UsersService {
           username: findUser.username,
         },
       };
+    } catch (error) {
+      console.log("error", error);
+
+      return {
+        status: 500,
+        message: "Error occured during fetching the user.",
+        error_message: error.message,
+      };
+    }
+  }
+
+  async getUserEmails(seatchText: string) {
+    try {
+      // Find user by text and return emails only
+      if (seatchText) {
+        console.log("seatchText: ", seatchText);
+        let userArr: {
+          user_id: string;
+          email: string;
+          mobile: string | null;
+        }[] = [];
+
+        const findUsers = await this.usersRepo.find({
+          where: [
+            { display_name: Like(`%${seatchText}%`) },
+            { email: Like(`%${seatchText}%`) },
+            { mobile_no: Like(`%${seatchText}%`) },
+          ],
+        });
+
+        console.log("findUsers: ", findUsers);
+
+        findUsers.forEach((usr) => {
+          userArr.push({
+            user_id: usr.id,
+            email: usr.email,
+            mobile: usr.mobile_no,
+          });
+        });
+
+        return {
+          status: 200,
+          message: "Fetched User successfully",
+          users: userArr,
+        };
+      } else {
+        return {
+          status: 200,
+          message: "Fetched User successfully",
+          users: [],
+        };
+      }
     } catch (error) {
       console.log("error", error);
 
@@ -91,34 +177,10 @@ export class UsersService {
     }
   }
 
-  async findUserByEmail(text: string) {
-    try {
-      // Check if user already registered?
-      const findUsers = await this.usersRepo.find({
-        where: [
-          { display_name: Like(`%${text}%`) },
-          { email: Like(`%${text}%`) },
-          { mobile_no: Like(`%${text}%`) },
-        ],
-      });
-
-      return {
-        status: 200,
-        message: findUsers ? "Fetched Users successfully" : "No users found",
-        user: findUsers ?? [],
-      };
-    } catch (error) {
-      console.log("error", error);
-
-      return {
-        status: 500,
-        message: "Error occured during fetching the users.",
-        error_message: error.message,
-      };
-    }
-  }
-
-  async createUser(createUserDto: Partial<CreateUserDto>) {
+  async createUser(
+    createUserDto: Partial<CreateUserDto>,
+    provider_token?: string
+  ) {
     try {
       // Check if user already registered?
       const findUser = await this.usersRepo.findOne({
@@ -135,6 +197,7 @@ export class UsersService {
             user_email: findUser.email,
             user_photo: findUser.profile_photo,
             userName: findUser.display_name,
+            provider_token,
           },
         };
       }

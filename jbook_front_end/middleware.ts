@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import isAuthenticated from "./lib/auth/isAuthenticated";
 import { refreshSession } from "./lib/auth/refreshSession";
+import { cookies } from "next/headers";
 
 export async function middleware(req: NextRequest) {
   const path = req.nextUrl.pathname;
   let isProtected: boolean;
   let isAuth: boolean = false;
-  const MERGER_SESSION = req.cookies.get("MERGER_SESSION")?.value;
+  // const MERGER_SESSION = req.cookies.get("MERGER_SESSION")?.value;
+  const cookieStore = await cookies();
+  const MERGER_SESSION = cookieStore.get("MERGER_SESSION")?.value;
 
   console.log("path: ", path);
 
@@ -44,11 +47,30 @@ export async function middleware(req: NextRequest) {
 
       console.log("isRefreshed: ", isRefreshed);
 
-      if (isProtected && !isRefreshed) {
-        return NextResponse.redirect(new URL("/login", req.url));
+      if (isRefreshed) {
+        console.log("Authenticated");
+        if (isProtected) {
+          return NextResponse.next();
+        } else {
+          if (
+            path === "/" ||
+            path === "/login" ||
+            path === "/signup" ||
+            path === "/resetpass" ||
+            path === "/forget"
+          ) {
+            return NextResponse.redirect(new URL("/dashboard", req.url));
+          } else {
+            return NextResponse.next();
+          }
+        }
       } else {
-        isRefreshed = false;
-        return NextResponse.next();
+        if (isProtected) {
+          return NextResponse.redirect(new URL("/login", req.url));
+        } else {
+          isRefreshed = false;
+          return NextResponse.next();
+        }
       }
     } else {
       console.log("Authenticated");
@@ -69,6 +91,7 @@ export async function middleware(req: NextRequest) {
       }
     }
   } else {
+    console.log("No...............");
     if (isProtected) {
       return NextResponse.redirect(new URL("/login", req.url));
     } else {

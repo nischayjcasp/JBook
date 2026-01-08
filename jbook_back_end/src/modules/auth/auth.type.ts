@@ -19,15 +19,26 @@ export interface GoogleUserInfoType {
 
 export interface SignUpResType {
   status: number;
+  user_id?: string;
   message?: string;
   userData?: {
     user_email: string;
     user_photo: string | null;
     userName: string;
+    provider_token?: string;
   };
   session_id?: string;
   session_exp?: Date;
   access_token?: string;
   access_token_exp?: Date;
   error_message?: string;
+}
+
+export interface FailedLoginLogData {
+  user_id: string;
+  device_id: string;
+  user_agent: string | null;
+  device_ip: string | null;
+  device_lat: number | null;
+  device_long: number | null;
 }

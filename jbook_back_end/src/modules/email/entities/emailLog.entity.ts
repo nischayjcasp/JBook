@@ -13,6 +13,14 @@ export enum EmailStatus {
   FAILED = "failed",
 }
 
+export enum EmailType {
+  WELCOME = "welcome",
+  OTPEMAIL = "otpemail",
+  OTPMOBILE = "otpmobile",
+  RESETPASS = "resetpass",
+  OTHER = "other",
+}
+
 @Entity("email_logs")
 export class EmailLogs {
   @PrimaryGeneratedColumn("uuid")
@@ -20,6 +28,13 @@ export class EmailLogs {
 
   @Column({ type: "timestamptz" })
   sent_at: Date | null;
+
+  @Column({
+    type: "enum",
+    enum: EmailType,
+    default: EmailType.OTHER,
+  })
+  email_type: EmailType;
 
   @Column()
   address_to: string;

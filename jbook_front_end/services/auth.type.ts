@@ -17,6 +17,7 @@ export interface LoginApiRes {
     user_email: string;
     user_photo: string | null;
     userName: string;
+    provider_token: string;
   };
 }
 
@@ -33,16 +34,9 @@ export interface EmailSignupPayloadType {
   device_long: number | null;
 }
 
-export interface GoogleSignupPayload {
-  authCode: string;
-  user_agent: string;
-  device_ip: string | null;
-  device_lat: number | null;
-  device_long: number | null;
-}
-
-export interface FacebookSignupPayload {
-  access_token: string;
+export interface GoogleFBSignupPayload {
+  authCode?: string;
+  access_token?: string;
   user_agent: string;
   device_ip: string | null;
   device_lat: number | null;

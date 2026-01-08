@@ -8,10 +8,18 @@ import { UserSession } from "../session/entities/user_session.entity";
 import { EmailModule } from "../email/email.module";
 import { ResetPasswordLog } from "./entities/resetPassword.entity";
 import { UsersModule } from "../users/users.module";
+import { FailedLoginLog } from "./entities/failedLoginLog.entity";
+import { OTP } from "./entities/otp.entity";
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Users, UserSession, ResetPasswordLog]),
+    TypeOrmModule.forFeature([
+      Users,
+      UserSession,
+      ResetPasswordLog,
+      FailedLoginLog,
+      OTP,
+    ]),
     SessionModule,
     EmailModule,
     UsersModule,

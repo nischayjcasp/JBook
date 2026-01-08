@@ -27,8 +27,7 @@ import {
 import { DeviceId, DeviceLocation } from "@/util/common.util";
 import {
   EmailLoginPayloadType,
-  FacebookSignupPayload,
-  GoogleSignupPayload,
+  GoogleFBSignupPayload,
 } from "@/services/auth.type";
 import { useDispatch } from "react-redux";
 import { setSession, setUserdata } from "@/redux/slices/userSlice";
@@ -60,7 +59,7 @@ const Login = () => {
         const deviceIpRes = await getDeivceIpAPI();
         const deviceIp = await DeviceLocation();
 
-        const payload: GoogleSignupPayload = {
+        const payload: GoogleFBSignupPayload = {
           authCode: code,
           user_agent: navigator.userAgent,
           device_ip: deviceIpRes.data?.ip ?? null,
@@ -188,7 +187,7 @@ const Login = () => {
       const deviceIpRes = await getDeivceIpAPI();
       const deviceIp = await DeviceLocation();
 
-      const payload: GoogleSignupPayload = {
+      const payload: GoogleFBSignupPayload = {
         authCode: response.code,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
@@ -256,7 +255,7 @@ const Login = () => {
       const deviceIpRes = await getDeivceIpAPI();
       const deviceIp = await DeviceLocation();
 
-      const payload: FacebookSignupPayload = {
+      const payload: GoogleFBSignupPayload = {
         access_token: authResp.accessToken,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,

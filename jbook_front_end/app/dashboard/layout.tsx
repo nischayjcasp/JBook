@@ -16,7 +16,7 @@ import { Controller, useForm } from "react-hook-form";
 import { FaSearch } from "react-icons/fa";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IoArrowBack,
   IoSettingsOutline,
@@ -64,7 +64,12 @@ import {
 } from "@/redux/slices/mergerSlice";
 import { logoutAPI } from "@/services/auth.service";
 import { createPostAPI } from "@/services/post.service";
-import { fetchUserData, updateUserAPI } from "@/services/user.serivce";
+import {
+  fetchAccListAPI,
+  fetchUserData,
+  updateUserAPI,
+} from "@/services/user.serivce";
+import { FoundAccsType } from "@/services/user.type";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -91,19 +96,8 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [settingActiveTab, setSettingActiveTab] = useState<number>(0);
   const [accountPassEye, setAccountPassEye] = useState<boolean>(false);
   const UserAcc = Boolean(userAccAnchor);
-  const [accounts, setAccounts] = useState([
-    "alex.morton92@gmail.com",
-    "sophia_turner87@yahoo.com",
-    "daniel.ross314@outlook.com",
-    "megha.kumar21@gmail.com",
-    "ethan.wells49@proton.me",
-    "kavya.sharma.dev@icloud.com",
-    "liam.hudson.tech@outlook.com",
-    "nora.jensen24@gmail.com",
-    "priya.verma.codes@yahoo.com",
-    "michael.brooks118@proton.me",
-  ]);
-  const [filteredAccounts, setFilteredAccounts] = useState(accounts);
+  // const [accounts, setAccounts] = useState<FoundAccsType>([]);
+  const [filteredAccounts, setFilteredAccounts] = useState<FoundAccsType[]>([]);
   const [changeCurrentPassEye, setChangeCurrentPassEye] =
     useState<boolean>(false);
   const [changeNewPassEye, setChangeNewPassEye] = useState<boolean>(false);
@@ -114,6 +108,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [selectedMergeAcc, setSelectedMergeAcc] = useState<Record<string, any>>(
     {}
   );
+  const mergeAccSeachInput = useRef<HTMLInputElement | null>(null);
 
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
@@ -134,12 +129,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const handleSettingTabs = (event: React.SyntheticEvent, newValue: number) => {
     setSettingActiveTab(newValue);
   };
-
-  // Search form
-  const {
-    control: searchControl,
-    formState: { errors: searchErrors },
-  } = useForm();
 
   // Account Form
   const {
@@ -366,13 +355,17 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
   };
 
   // Merge Account search
-  const handleAccSearch = (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log(event.target.value);
-    let filteredAcc = accounts.filter((emailId) =>
-      emailId.includes(event.target.value)
-    );
-    console.log(filteredAcc);
-    setFilteredAccounts([...filteredAcc]);
+  const handleAccSearch = async (text: string) => {
+    console.log("text: ", text);
+    try {
+      const fetchAccRes = await fetchAccListAPI(text);
+
+      console.log("fetchAccRes: ", fetchAccRes);
+
+      setFilteredAccounts([...fetchAccRes.users]);
+    } catch (error) {
+      console.log("Error: ", error);
+    }
   };
 
   //
@@ -456,10 +449,11 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
             >
               <div className="flex items-center gap-2">
                 <Avatar
-                  alt="Username"
+                  alt="User photo"
                   src={userData.userPhoto ?? "/userDefaultPic.jpg"}
                   sx={{ width: 28, height: 28 }}
                 />
+
                 <p className="text-black text-sm font-semibold capitalize">
                   {userData.userDisplayName ?? "Guest"}
                 </p>
@@ -1547,6 +1541,17 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                                 </td>
                               </tr>
                             ))}
+
+                          {userData.conncetedAcc &&
+                            userData.conncetedAcc.length <= 0 && (
+                              <tr>
+                                <td colSpan={3}>
+                                  <p className="py-4 text-red-500 font-semibold">
+                                    No connected accounts
+                                  </p>
+                                </td>
+                              </tr>
+                            )}
                         </tbody>
                       </table>
                     </div>
@@ -1560,13 +1565,22 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
                     <div className="max-w-[500px]">
                       {/*Account Search bar */}
-                      <div className="w-full relative mb-4">
+                      <form
+                        className="w-full relative mb-4"
+                        onSubmit={() => {
+                          if (mergeAccSeachInput.current)
+                            handleAccSearch(mergeAccSeachInput.current.value);
+                        }}
+                      >
                         <input
                           type="text"
+                          ref={mergeAccSeachInput}
                           name="account_search"
                           className="w-full px-3 py-1.5 border rounded-sm"
                           placeholder="Search here.."
-                          onChange={handleAccSearch}
+                          onChange={(
+                            event: React.ChangeEvent<HTMLInputElement>
+                          ) => handleAccSearch(event.target.value)}
                         />
                         <button
                           type="submit"
@@ -1574,7 +1588,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                         >
                           <FaSearch className="text-xl" />
                         </button>
-                      </div>
+                      </form>
 
                       {/* Selecte Account */}
                       <form onSubmit={selectAccSubmit(onMergeStart)}>
@@ -1606,11 +1620,12 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                                               // onChange={handleCheckAcc}
                                             />
                                           }
-                                          label={acc}
+                                          label={acc.email ?? acc.mobile}
                                         />
                                       </li>
                                     ))}
                                 </ul>
+
                                 {filteredAccounts &&
                                   filteredAccounts.length <= 0 && (
                                     <p className="text-red-500 font-semibold text-center p-4">
@@ -1621,7 +1636,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             )}
                           />
                         </div>
-                        <p className="text-sm text-red-500 min-h-5 mb-1">
+                        <p className="text-sm text-red-500 min-h-5 mb-4">
                           {selectAccErrors.selectedAcc &&
                             (selectAccErrors.selectedAcc?.message as string)}
                         </p>

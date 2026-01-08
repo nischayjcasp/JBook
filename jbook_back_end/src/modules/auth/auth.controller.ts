@@ -79,7 +79,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const authCode = req.headers.authorization as string;
+    let authCode = req.headers.authorization as string;
+    let access_token: string | null = null;
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
 
     if (!authCode) {
@@ -89,9 +90,22 @@ export class AuthController {
       };
     }
 
+    if (authCode.includes("Bearer")) {
+      console.log("It is access token");
+      access_token = authCode.split(" ")[1];
+
+      if (!access_token) {
+        return {
+          status: 401,
+          message: "Unauthorised request, failed to sign up with google",
+        };
+      }
+    }
+
     const googleLoginResp = await this.authService.loginWithGoogle(
       loginWithGoogleDto,
       authCode,
+      access_token,
       device_id
     );
 
@@ -192,6 +206,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     const authCode = req.headers.authorization as string;
+    let access_token: string | null = null;
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
 
     if (!authCode) {
@@ -201,9 +216,22 @@ export class AuthController {
       };
     }
 
+    if (authCode.includes("Bearer")) {
+      console.log("It is access token");
+      access_token = authCode.split(" ")[1];
+
+      if (!access_token) {
+        return {
+          status: 401,
+          message: "Unauthorised request, failed to sign up with google",
+        };
+      }
+    }
+
     const linkedInLoginResp = await this.authService.loginWithLinkedIn(
       loginWithLinkedInDto,
       authCode,
+      access_token,
       device_id
     );
 
@@ -336,7 +364,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const authCode = req.headers.authorization as string;
+    let authCode = req.headers.authorization as string;
+    let access_token: string | null = null;
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
 
     if (!authCode) {
@@ -346,9 +375,22 @@ export class AuthController {
       };
     }
 
+    if (authCode.includes("Bearer")) {
+      console.log("It is access token");
+      access_token = authCode.split(" ")[1];
+
+      if (!access_token) {
+        return {
+          status: 401,
+          message: "Unauthorised request, failed to sign up with google",
+        };
+      }
+    }
+
     const googleSignupResp = await this.authService.signupWithGoogle(
       signUpWithGoogleDto,
       authCode,
+      access_token,
       device_id
     );
 
@@ -449,6 +491,7 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response
   ) {
     const authCode = req.headers.authorization as string;
+    let access_token: string | null = null;
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
 
     if (!authCode) {
@@ -458,9 +501,22 @@ export class AuthController {
       };
     }
 
+    if (authCode.includes("Bearer")) {
+      console.log("It is access token");
+      access_token = authCode.split(" ")[1];
+
+      if (!access_token) {
+        return {
+          status: 401,
+          message: "Unauthorised request, failed to sign up with google",
+        };
+      }
+    }
+
     const linkedInSignupResp = await this.authService.signupWithLinkedIn(
       signUpWithLinkedInDto,
       authCode,
+      access_token,
       device_id
     );
 

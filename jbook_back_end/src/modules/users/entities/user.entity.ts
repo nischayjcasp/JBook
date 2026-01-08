@@ -11,6 +11,11 @@ export enum Gender {
   FEMALE = "female",
 }
 
+export enum AccountStatus {
+  ACTIVE = "active",
+  BLOCKED = "blocked",
+}
+
 @Entity("users")
 export class Users {
   @PrimaryGeneratedColumn("uuid")
@@ -21,6 +26,19 @@ export class Users {
     nullable: true,
   })
   primary_account: string | null;
+
+  @Column({
+    type: "enum",
+    enum: AccountStatus,
+    default: AccountStatus.ACTIVE,
+  })
+  status: AccountStatus;
+
+  @Column({
+    type: "timestamptz",
+    nullable: true,
+  })
+  block_expires_at: Date | null;
 
   @Column({ unique: true })
   username: string;
@@ -52,10 +70,20 @@ export class Users {
   email: string;
 
   @Column({
+    default: false,
+  })
+  is_email_verified: boolean;
+
+  @Column({
     type: "text",
     nullable: true,
   })
   mobile_no: string | null;
+
+  @Column({
+    default: false,
+  })
+  is_mobile_verified: boolean;
 
   @Column({
     type: "text",

@@ -2,9 +2,8 @@ import API from "@/lib/api";
 import {
   EmailLoginPayloadType,
   EmailSignupPayloadType,
-  FacebookSignupPayload,
   FotgotPasswordPayload,
-  GoogleSignupPayload,
+  GoogleFBSignupPayload,
   LoginApiRes,
   ResetPasswordPayload,
 } from "./auth.type";
@@ -19,8 +18,12 @@ export const emailLoginAPI = (
 };
 
 export const googleLoginAPI = (
-  payload: GoogleSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
+  const authHeader = payload.authCode
+    ? payload.authCode
+    : `Bearer ${payload.access_token}`;
+
   return API.post(
     "/auth/login/google",
     {
@@ -31,14 +34,14 @@ export const googleLoginAPI = (
     },
     {
       headers: {
-        Authorization: payload.authCode,
+        Authorization: authHeader,
       },
     }
   );
 };
 
 export const facebookLoginAPI = (
-  payload: FacebookSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
   return API.post(
     "/auth/login/facebook",
@@ -57,8 +60,12 @@ export const facebookLoginAPI = (
 };
 
 export const linkedInLoginAPI = (
-  payload: GoogleSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
+  const authHeader = payload.authCode
+    ? payload.authCode
+    : `Bearer ${payload.access_token}`;
+
   return API.post(
     "/auth/login/linkedin",
     {
@@ -69,7 +76,7 @@ export const linkedInLoginAPI = (
     },
     {
       headers: {
-        Authorization: payload.authCode,
+        Authorization: authHeader,
       },
     }
   );
@@ -90,8 +97,12 @@ export const emailSingupAPI = (
 };
 
 export const googleSingupAPI = (
-  payload: GoogleSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
+  const authHeader = payload.authCode
+    ? payload.authCode
+    : `Bearer ${payload.access_token}`;
+
   return API.post(
     "/auth/signup/google",
     {
@@ -102,14 +113,14 @@ export const googleSingupAPI = (
     },
     {
       headers: {
-        Authorization: payload.authCode,
+        Authorization: authHeader,
       },
     }
   );
 };
 
 export const facebookSingupAPI = (
-  payload: FacebookSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
   return API.post(
     "/auth/signup/facebook",
@@ -128,8 +139,12 @@ export const facebookSingupAPI = (
 };
 
 export const linkedInSingupAPI = (
-  payload: GoogleSignupPayload
+  payload: GoogleFBSignupPayload
 ): Promise<LoginApiRes> => {
+  const authHeader = payload.authCode
+    ? payload.authCode
+    : `Bearer ${payload.access_token}`;
+
   return API.post(
     "/auth/signup/linkedin",
     {
@@ -140,7 +155,7 @@ export const linkedInSingupAPI = (
     },
     {
       headers: {
-        Authorization: payload.authCode,
+        Authorization: authHeader,
       },
     }
   );

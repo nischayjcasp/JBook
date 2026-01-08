@@ -1,6 +1,6 @@
 import API from "@/lib/api";
 import { LoginApiRes } from "./auth.type";
-import { userData } from "./user.type";
+import { FetchAccListRes, userData } from "./user.type";
 import { ReduxStore } from "@/redux/store";
 import { setUserdata } from "@/redux/slices/userSlice";
 import { toast } from "react-toastify";
@@ -42,6 +42,10 @@ export const fetchUserData = async () => {
     const err = error as { message: string };
     toast.error(err.message);
   }
+};
+
+export const fetchAccListAPI = (text: string): Promise<FetchAccListRes> => {
+  return API.get(`/user/fetch/emails?search=${text}`);
 };
 
 export const fetchUserByIdAPI = (

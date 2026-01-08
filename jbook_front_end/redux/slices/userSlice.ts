@@ -1,5 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+export interface ConnectedAccType {
+  email: string;
+  isPrimary: boolean;
+  isVerified: boolean;
+}
+
 interface UserSliceType {
   sessionId: string;
   userData: {
@@ -10,11 +16,7 @@ interface UserSliceType {
     userGender: string;
     userEmail: string;
     userPhoto: string;
-    conncetedAcc: {
-      email: string;
-      isPrimary: boolean;
-      isVerified: boolean;
-    }[];
+    conncetedAcc: ConnectedAccType[];
   };
 }
 

@@ -33,8 +33,7 @@ import { IoMdClose } from "react-icons/io";
 import { toast } from "react-toastify";
 import {
   EmailSignupPayloadType,
-  FacebookSignupPayload,
-  GoogleSignupPayload,
+  GoogleFBSignupPayload,
 } from "@/services/auth.type";
 import {
   emailSingupAPI,
@@ -43,6 +42,7 @@ import {
   getDeivceIpAPI,
   googleLoginAPI,
   googleSingupAPI,
+  linkedInLoginAPI,
   linkedInSingupAPI,
 } from "@/services/auth.service";
 import { DeviceId, DeviceLocation } from "@/util/common.util";
@@ -56,16 +56,17 @@ const SignUp = () => {
   const [alreadyHaveAccount, setAlreadyHaveAccount] = useState<{
     flag: boolean;
     provider?: string;
-    code?: string;
     userData?: {
       user_email: string;
       user_photo: string | null;
       userName: string;
+      provider_token: string;
     };
   }>({
     flag: false,
   });
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isOnClickLoading, setIsOnClickLoading] = useState<boolean>(false);
   const [isLoadingGoogle, setLoadingGoogle] = useState<boolean>(false);
   const [isLoadingFacebook, setLoadingFacebook] = useState<boolean>(false);
   const [isLoadingLinkedIn, setLoadingLinkedIn] = useState<boolean>(false);
@@ -76,6 +77,7 @@ const SignUp = () => {
   const linkendInCode = params.get("code");
   const linkendInCallback = params.get("callback");
 
+  // Linked in sign up
   useEffect(() => {
     const handleLinkedSignup = async (code: string) => {
       setLoadingLinkedIn(true);
@@ -84,7 +86,7 @@ const SignUp = () => {
         const deviceIpRes = await getDeivceIpAPI();
         const deviceIp = await DeviceLocation();
 
-        const payload: GoogleSignupPayload = {
+        const payload: GoogleFBSignupPayload = {
           authCode: code,
           user_agent: navigator.userAgent,
           device_ip: deviceIpRes.data?.ip ?? null,
@@ -101,7 +103,13 @@ const SignUp = () => {
           router.replace("/dashboard");
           setLoadingLinkedIn(false);
         } else {
-          toast.error(linkedInSignupRes.message);
+          if (linkedInSignupRes.status === 400) {
+            setAlreadyHaveAccount({
+              flag: true,
+              provider: "linkedin",
+              userData: linkedInSignupRes.userData,
+            });
+          }
         }
       } catch (error) {
         console.log("Error: ", error);
@@ -178,6 +186,7 @@ const SignUp = () => {
       } else {
         if (emailSignupRes.status === 400) {
           toast.error(emailSignupRes.message);
+          router.replace("/login");
         }
       }
     } catch (error: unknown) {
@@ -212,7 +221,7 @@ const SignUp = () => {
       const deviceIpRes = await getDeivceIpAPI();
       const deviceIp = await DeviceLocation();
 
-      const payload: GoogleSignupPayload = {
+      const payload: GoogleFBSignupPayload = {
         authCode: response.code,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
@@ -233,7 +242,6 @@ const SignUp = () => {
           setAlreadyHaveAccount({
             flag: true,
             provider: "google",
-            code: response.code,
             userData: googleSignupRes.userData,
           });
         }
@@ -271,14 +279,6 @@ const SignUp = () => {
   const facebookSignupCallback = async (authResp: any) => {
     console.log("FB Token:", authResp);
     setLoadingFacebook(true);
-    // {
-    //   accessToken: "string";
-    //   data_access_expiration_time: number;
-    //   expiresIn: number;
-    //   graphDomain: "string";
-    //   signedRequest: "string";
-    //   userID: "string";
-    // }
 
     try {
       //Sign up payload
@@ -286,7 +286,7 @@ const SignUp = () => {
       const deviceIpRes = await getDeivceIpAPI();
       const deviceIp = await DeviceLocation();
 
-      const payload: FacebookSignupPayload = {
+      const payload: GoogleFBSignupPayload = {
         access_token: authResp.accessToken,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
@@ -303,7 +303,13 @@ const SignUp = () => {
         router.replace("/dashboard");
         setLoadingFacebook(false);
       } else {
-        toast.error(facebookSignupRes.message);
+        if (facebookSignupRes.status === 400) {
+          setAlreadyHaveAccount({
+            flag: true,
+            provider: "facebook",
+            userData: facebookSignupRes.userData,
+          });
+        }
       }
     } catch (error) {
       console.log("Error: ", error);
@@ -328,13 +334,14 @@ const SignUp = () => {
 
   const closeAlreadyHaveAccDialog = () => {
     setAlreadyHaveAccount({ flag: false });
+    router.replace("/signup");
   };
 
   const handleOneClickLogin = async () => {
     closeAlreadyHaveAccDialog();
     console.log("One click login");
 
-    if (!alreadyHaveAccount.code) {
+    if (!alreadyHaveAccount.userData?.provider_token) {
       toast.error("Unauthorized provider login!");
       return;
     }
@@ -342,10 +349,14 @@ const SignUp = () => {
     const deviceIpRes = await getDeivceIpAPI();
     const deviceIp = await DeviceLocation();
 
-    switch (alreadyHaveAccount?.provider) {
-      case "google": {
-        const payload: GoogleSignupPayload = {
-          authCode: alreadyHaveAccount.code,
+    if (
+      alreadyHaveAccount.provider &&
+      alreadyHaveAccount.provider === "google"
+    ) {
+      try {
+        setIsOnClickLoading(true);
+        const payload: GoogleFBSignupPayload = {
+          access_token: alreadyHaveAccount.userData?.provider_token,
           user_agent: navigator.userAgent,
           device_ip: deviceIpRes.data?.ip ?? null,
           device_lat: deviceIp.lat,
@@ -362,29 +373,76 @@ const SignUp = () => {
         } else {
           toast.error(googleLoginRes.message);
         }
-        break;
+      } catch (error) {
+        console.log("Error: ", error);
+        let err = error as { message: string };
+        toast.error(err.message);
+      } finally {
+        setIsOnClickLoading(false);
       }
-      case "facebook":
-        {
-          const payload: FacebookSignupPayload = {
-            access_token: alreadyHaveAccount.code,
-            user_agent: navigator.userAgent,
-            device_ip: deviceIpRes.data?.ip ?? null,
-            device_lat: deviceIp.lat,
-            device_long: deviceIp.long,
-          };
-          const facebookSignupRes = await facebookLoginAPI(payload);
+    } else if (
+      alreadyHaveAccount.provider &&
+      alreadyHaveAccount.provider === "facebook"
+    ) {
+      try {
+        setIsOnClickLoading(true);
 
-          console.log("facebookSignupRes: ", facebookSignupRes);
+        const payload: GoogleFBSignupPayload = {
+          access_token: alreadyHaveAccount.userData.provider_token,
+          user_agent: navigator.userAgent,
+          device_ip: deviceIpRes.data?.ip ?? null,
+          device_lat: deviceIp.lat,
+          device_long: deviceIp.long,
+        };
+        const facebookSignupRes = await facebookLoginAPI(payload);
 
-          if (facebookSignupRes.status === 200) {
-            toast.success(facebookSignupRes.message);
-            router.replace("/dashboard");
-          } else {
-            toast.error(facebookSignupRes.message);
-          }
+        console.log("facebookSignupRes: ", facebookSignupRes);
+
+        if (facebookSignupRes.status === 200) {
+          toast.success(facebookSignupRes.message);
+          router.replace("/dashboard");
+        } else {
+          toast.error(facebookSignupRes.message);
         }
-        break;
+      } catch (error) {
+        console.log("Error: ", error);
+        let err = error as { message: string };
+        toast.error(err.message);
+      } finally {
+        setIsOnClickLoading(false);
+      }
+    } else if (
+      alreadyHaveAccount.provider &&
+      alreadyHaveAccount.provider === "linkedin"
+    ) {
+      try {
+        setIsOnClickLoading(true);
+        const payload: GoogleFBSignupPayload = {
+          access_token: alreadyHaveAccount.userData.provider_token,
+          user_agent: navigator.userAgent,
+          device_ip: deviceIpRes.data?.ip ?? null,
+          device_lat: deviceIp.lat,
+          device_long: deviceIp.long,
+        };
+        const linkedInLoginRes = await linkedInLoginAPI(payload);
+
+        console.log("linkedInLoginRes: ", linkedInLoginRes);
+
+        if (linkedInLoginRes.status === 200) {
+          toast.success(linkedInLoginRes.message);
+          router.replace("/dashboard");
+        } else {
+          toast.error(linkedInLoginRes.message);
+          router.replace("/signup");
+        }
+      } catch (error) {
+        console.log("Error: ", error);
+        let err = error as { message: string };
+        toast.error(err.message);
+        router.replace("/signup");
+      } finally {
+        setIsOnClickLoading(false);
+      }
     }
   };
 
@@ -817,7 +875,8 @@ const SignUp = () => {
             <li className="w-full">
               <button
                 type="button"
-                className="w-full flex justify-between items-center cursor-pointer p-4 border-b border-b-slate-300"
+                disabled={isOnClickLoading}
+                className="w-full flex justify-between items-center cursor-pointer p-4 border-b border-b-slate-300 disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 hover:bg-slate-200"
                 onClick={handleOneClickLogin}
               >
                 <div className="flex items-center gap-4">
@@ -833,9 +892,23 @@ const SignUp = () => {
                     {alreadyHaveAccount.userData?.userName}
                   </p>
                 </div>
-                <p className="p-1.5">
-                  <GoArrowRight className="text-xl" />
-                </p>
+
+                <div className="flex items-center gap-3">
+                  {isOnClickLoading && (
+                    <CircularProgress
+                      size={24}
+                      sx={{
+                        "&.MuiCircularProgress-root": {
+                          color: "#62748e",
+                        },
+                      }}
+                    />
+                  )}
+
+                  <p className="p-1.5">
+                    <GoArrowRight className="text-xl" />
+                  </p>
+                </div>
               </button>
             </li>
           </ul>
