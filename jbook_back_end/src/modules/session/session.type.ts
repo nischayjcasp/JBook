@@ -1,5 +1,9 @@
+import { AccountStatus } from "../users/entities/user.entity";
+import { SessionStatus } from "./entities/user_session.entity";
+
 export interface SessionData {
   userId: string;
+  sessionStatus?: SessionStatus;
   device_id: string;
   user_agent: string | null;
   device_ip: string | null;

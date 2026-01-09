@@ -20,7 +20,10 @@ import {
   SignUpResType,
 } from "./auth.type";
 import { SignUpWithGoogleDto } from "./dto/signUpWithGoogle.dto";
-import { UserSession } from "../session/entities/user_session.entity";
+import {
+  SessionStatus,
+  UserSession,
+} from "../session/entities/user_session.entity";
 import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
 import { EmailService } from "../email/email.service";
 import { ResetPasswordDto } from "./dto/resetPassword.dro";
@@ -139,8 +142,14 @@ export class AuthService {
 
   async loginWithEmail(
     loginWithEmailDto: LoginWithEmailDto,
-    device_id: string
+    device_id: string | null | undefined
   ): Promise<SignUpResType> {
+    if (!device_id) {
+      console.log("No device id, new device");
+
+      device_id = crypto.randomUUID();
+    }
+
     try {
       // finduser in DB
       const finduser = await this.usersRepo.findOne({
@@ -179,17 +188,6 @@ export class AuthService {
         }
       }
 
-      const isNewDevice = this.emailVerificationNewDevice({
-        userId: finduser.id,
-        user_agent: loginWithEmailDto.user_agent,
-        device_id,
-        device_ip: loginWithEmailDto.device_ip as string,
-        device_lat: loginWithEmailDto.device_lat,
-        device_long: loginWithEmailDto.device_long,
-      });
-
-      console.log("isNewDevice: ", isNewDevice);
-
       //Check credentials
       const isMatching = await bcrypt.compare(
         loginWithEmailDto.login_password,
@@ -209,14 +207,30 @@ export class AuthService {
         return failedLogsRes;
       }
 
+      // Check for whether it is new device
+      const isNewDevice = await this.newDeviceVerification({
+        userId: finduser.id,
+        user_agent: loginWithEmailDto.user_agent,
+        device_id,
+        device_ip: loginWithEmailDto.device_ip as string,
+        device_lat: loginWithEmailDto.device_lat,
+        device_long: loginWithEmailDto.device_long,
+      });
+
+      console.log("isNewDevice: ", isNewDevice);
+
       const sessionPayload: SessionData = {
         userId: finduser.id,
-        device_id: device_id,
+        device_id,
         user_agent: loginWithEmailDto.user_agent,
         device_ip: loginWithEmailDto.device_ip,
         device_lat: loginWithEmailDto.device_lat,
         device_long: loginWithEmailDto.device_long,
       };
+
+      if (isNewDevice?.status) {
+        sessionPayload.sessionStatus = SessionStatus.BLOCKED;
+      }
 
       const createdSession =
         await this.sessionService.createSession(sessionPayload);
@@ -226,6 +240,9 @@ export class AuthService {
       return {
         status: 200,
         user_id: finduser.id,
+        device_id: isNewDevice?.status ? device_id : undefined,
+        otp_id: isNewDevice?.otp_id,
+        otp_message: `Sent you otp on ${finduser.email}`,
         session_id: createdSession.session_id,
         session_exp: createdSession.session_exp,
         access_token: createdSession.access_token,
@@ -537,6 +554,8 @@ export class AuthService {
       return { status: 500, message: error.message };
     }
   }
+
+  async loginWithOtp() {}
 
   //<============== Logout ==============>
 
@@ -1103,7 +1122,7 @@ export class AuthService {
     }
   }
 
-  async emailVerificationNewDevice(emailVerifyPayload: SessionData) {
+  async newDeviceVerification(emailVerifyPayload: SessionData) {
     try {
       let deviceInfo: any = null;
 
@@ -1121,11 +1140,15 @@ export class AuthService {
         },
       });
 
+      console.log("findSessions: ", findSessions);
+
       const findUser = await this.usersRepo.findOne({
         where: {
           id: emailVerifyPayload.userId,
         },
       });
+
+      console.log("findUser: ", findUser);
 
       const isNewDevice = findSessions.length > 0 ? false : true;
 
@@ -1140,13 +1163,30 @@ export class AuthService {
           device_long: emailVerifyPayload.device_long,
         });
 
-        console.log("otpMailRes: ", otpMailRes);
+        console.log(
+          "New device: ",
+          emailVerifyPayload.device_id,
+          "otp: ",
+          otpMailRes
+        );
 
-        return { status: 200, message: "OTP sent on " };
+        if (otpMailRes.status === 200) {
+          return {
+            status: true,
+            otp_id: otpMailRes.otp_id,
+          };
+        }
+      } else {
+        return {
+          status: false,
+        };
       }
     } catch (error) {
       console.log("Error: ", error);
-      return { status: 500 };
+
+      throw new InternalServerErrorException(
+        "Error occued while checking device verification"
+      );
     }
   }
 }

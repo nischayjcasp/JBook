@@ -17,6 +17,7 @@ import type { Request, Response } from "express";
 import { SignUpWithGoogleDto } from "./dto/signUpWithGoogle.dto";
 import { ForgotPasswordDto } from "./dto/forgotPassword.dto";
 import { ResetPasswordDto } from "./dto/resetPassword.dro";
+import { LoginWithOtpDto } from "./dto/loginWithOtp.dto";
 
 @Controller("auth")
 export class AuthController {
@@ -30,7 +31,8 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
-    const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+    const device_id: string | null | undefined =
+      req.cookies["MERGER_DEVICE_ID"];
 
     const loginResp = await this.authService.loginWithEmail(
       loginWithEmailDto,
@@ -38,36 +40,49 @@ export class AuthController {
     );
 
     if (loginResp.status === 200) {
-      res.cookie("MERGER_SESSION", loginResp.session_id, {
-        httpOnly: true,
-        secure: process.env.APP_ENV === "production",
-        sameSite: "strict",
-        path: "/",
-        expires: loginResp.session_exp,
-      });
+      if (!loginResp.otp_id) {
+        res.cookie("MERGER_SESSION", loginResp.session_id, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          expires: loginResp.session_exp,
+        });
 
-      res.cookie("MERGER_ACCESS_TOKEN", loginResp.access_token, {
-        httpOnly: true,
-        secure: process.env.APP_ENV === "production",
-        sameSite: "strict",
-        path: "/",
-        expires: loginResp.access_token_exp,
-      });
+        res.cookie("MERGER_ACCESS_TOKEN", loginResp.access_token, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          expires: loginResp.access_token_exp,
+        });
+      }
 
-      res.cookie("MERGER_DEVICE_ID", device_id ?? crypto.randomUUID(), {
-        httpOnly: true,
-        secure: process.env.APP_ENV === "production",
-        sameSite: "strict",
-        path: "/",
-        maxAge: 400 * 24 * 60 * 60 * 1000,
-      });
+      if (loginResp.device_id) {
+        res.cookie("MERGER_DEVICE_ID", loginResp.device_id, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          maxAge: 400 * 24 * 60 * 60 * 1000,
+        });
+      }
 
-      res.json({
-        status: 200,
-        message: "you have logged in successfully.",
-        access_token: loginResp.access_token,
-        user_id: loginResp.user_id,
-      });
+      if (loginResp.otp_id) {
+        return res.json({
+          status: 200,
+          message: loginResp.otp_message,
+          otp_id: loginResp.otp_id,
+          session_id: loginResp.session_id,
+        });
+      } else {
+        return res.json({
+          status: 200,
+          message: "you have logged in successfully.",
+          access_token: loginResp.access_token,
+          user_id: loginResp.user_id,
+        });
+      }
     } else {
       return loginResp;
     }
@@ -266,6 +281,68 @@ export class AuthController {
       });
     } else {
       return linkedInLoginResp;
+    }
+  }
+
+  @Post("auth/login/otp")
+  async loginWithOtpCntr(
+    @Body() loginWithOtpDto: LoginWithOtpDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+
+    const loginResp = await this.authService.loginWithOtp(
+      loginWithOtpDto,
+      device_id
+    );
+
+    if (loginResp.status === 200) {
+      if (!loginResp.otp_id) {
+        res.cookie("MERGER_SESSION", loginResp.session_id, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          expires: loginResp.session_exp,
+        });
+
+        res.cookie("MERGER_ACCESS_TOKEN", loginResp.access_token, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          expires: loginResp.access_token_exp,
+        });
+      }
+
+      if (loginResp.device_id) {
+        res.cookie("MERGER_DEVICE_ID", loginResp.device_id, {
+          httpOnly: true,
+          secure: process.env.APP_ENV === "production",
+          sameSite: "strict",
+          path: "/",
+          maxAge: 400 * 24 * 60 * 60 * 1000,
+        });
+      }
+
+      if (loginResp.otp_id) {
+        return res.json({
+          status: 200,
+          message: loginResp.otp_message,
+          otp_id: loginResp.otp_id,
+          session_id: loginResp.session_id,
+        });
+      } else {
+        return res.json({
+          status: 200,
+          message: "you have logged in successfully.",
+          access_token: loginResp.access_token,
+          user_id: loginResp.user_id,
+        });
+      }
+    } else {
+      return loginResp;
     }
   }
 

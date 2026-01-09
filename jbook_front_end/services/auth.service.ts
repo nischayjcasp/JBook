@@ -82,6 +82,12 @@ export const linkedInLoginAPI = (
   );
 };
 
+export const otpVerifyLoginAPI = async (
+  otpPayload: FotgotPasswordPayload
+): Promise<LoginApiRes> => {
+  return API.post("/auth/login/otp", otpPayload);
+};
+
 // <================ Logout ================>
 
 export const logoutAPI = (): Promise<LoginApiRes> => {

@@ -12,7 +12,9 @@ export interface LoginApiRes {
   message: string;
   error_message?: string;
   access_token?: string;
+  session_id?: string;
   user_id?: string;
+  otp_id?: string;
   userData?: {
     user_email: string;
     user_photo: string | null;
@@ -51,7 +53,8 @@ export interface LinkedInSignupPayload {
 }
 
 export interface FotgotPasswordPayload {
-  forgot_pass_email: string;
+  otp_id: string;
+  otp: string;
   device_ip: string | null;
   device_lat: number | null;
   device_long: number | null;
@@ -63,4 +66,6 @@ export interface ResetPasswordPayload {
   device_ip: string | null;
   device_lat: number | null;
   device_long: number | null;
+}
+{
 }

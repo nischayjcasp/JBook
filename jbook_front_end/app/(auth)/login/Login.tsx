@@ -107,8 +107,8 @@ const Login = () => {
   } = useForm<LoginSchemaType>({
     resolver: yupResolver(loginSchema),
     defaultValues: {
-      login_email: "ram8606@gmail.com",
-      login_password: "Ram@@8606",
+      login_email: "",
+      login_password: "",
     },
   });
 
@@ -135,15 +135,20 @@ const Login = () => {
       console.log("emailLoginRes: ", emailLoginRes);
 
       if (emailLoginRes.status === 200) {
-        dispatch(setSession(emailLoginRes.access_token));
-        dispatch(
-          setUserdata({
-            userId: emailLoginRes.user_id,
-          })
-        );
-        loginReset();
-        toast.success(emailLoginRes.message);
-        router.replace("/dashboard");
+        if (emailLoginRes.otp_id) {
+          router.replace(`/otp/${emailLoginRes.otp_id}`);
+          toast.success(emailLoginRes.message);
+        } else {
+          dispatch(setSession(emailLoginRes.access_token));
+          dispatch(
+            setUserdata({
+              userId: emailLoginRes.user_id,
+            })
+          );
+          loginReset();
+          toast.success(emailLoginRes.message);
+          router.replace("/dashboard");
+        }
       } else {
         toast.error(emailLoginRes.message);
       }

@@ -82,8 +82,7 @@ export const forgotPassSchema = yup.object({
 
 export type ForgotPassSchemaType = yup.InferType<typeof forgotPassSchema>;
 
-// Reser password schema
-
+// Reset password schema
 export const resetPassSchema = yup.object({
   reset_password: yup
     .string()
@@ -103,3 +102,13 @@ export const resetPassSchema = yup.object({
 });
 
 export type ResetPassSchemaType = yup.InferType<typeof resetPassSchema>;
+
+// otp verification schema
+export const OtpVerificationSchema = yup.object({
+  otp: yup
+    .string()
+    .required("OTP is required")
+    .matches(/^\d{6,}$/, "Invalid otp!"),
+});
+
+export type OtpVerificationType = yup.InferType<typeof OtpVerificationSchema>;

@@ -20,6 +20,9 @@ export interface GoogleUserInfoType {
 export interface SignUpResType {
   status: number;
   user_id?: string;
+  otp_id?: string;
+  device_id?: string;
+  otp_message?: string;
   message?: string;
   userData?: {
     user_email: string;

@@ -195,7 +195,7 @@ export class SessionService {
 
     findSession.refresh_token = refresh_token;
     findSession.expires_at = new Date(refresh_token_decoded.exp * 1000);
-    findSession.status = SessionStatus.ACTIVE;
+    findSession.status = sessionData.sessionStatus ?? SessionStatus.ACTIVE;
 
     const updatedSession = await this.sessionRepo.save(findSession);
 

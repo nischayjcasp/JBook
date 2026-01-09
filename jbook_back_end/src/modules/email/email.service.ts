@@ -260,19 +260,15 @@ export class EmailService {
           };
         }
 
-        return { status: 200 };
+        return { status: 200, otp_id: otpLogRes.id };
       } else {
-        return {
-          status: 500,
-          message: "Failed to sent email OTP",
-        };
+        throw new InternalServerErrorException();
       }
     } catch (error) {
       console.log("sentOtp-Error: ", error);
-      return {
-        status: 500,
-        message: error.message,
-      };
+      throw new InternalServerErrorException(
+        "Error occured while sending otp email"
+      );
     }
   }
 }
