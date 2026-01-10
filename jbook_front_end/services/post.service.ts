@@ -1,12 +1,14 @@
 import API from "@/lib/api";
 import { PostData } from "./post.type";
 
-export const fetchPostAllAPI = (): Promise<{
+export const fetchPostAllAPI = (
+  text?: string
+): Promise<{
   status: number;
   message: string;
   posts: PostData[];
 }> => {
-  return API.get(`/post/fetch/all`);
+  return API.get(`/post/fetch/all/${text ? `?search=${text}` : ""}`);
 };
 
 export const fetchPostByIdAPI = (

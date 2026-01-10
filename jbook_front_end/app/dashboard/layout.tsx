@@ -40,12 +40,13 @@ import { BsLayoutSidebar } from "react-icons/bs";
 import { ReactNode } from "react";
 import { FaCirclePlus } from "react-icons/fa6";
 import defaultImage from "@/app/assets/images/default-placeholder.jpg";
-import Image from "next/image";
+import Image, { StaticImageData } from "next/image";
 import { yupResolver } from "@hookform/resolvers/yup";
 import {
   addPostSchema,
   AddPostSchemaType,
   deleteAccSchema,
+  DeleteAccSchemaType,
   passChangeSchema,
   PassChangeSchemaType,
   userPhotoSupportedFormats,
@@ -62,14 +63,21 @@ import {
   setPrimaryAccData,
   setSecondaryAccData,
 } from "@/redux/slices/mergerSlice";
-import { logoutAPI } from "@/services/auth.service";
-import { createPostAPI } from "@/services/post.service";
+import { getDeivceIpAPI, logoutAPI } from "@/services/auth.service";
 import {
+  createPostAPI,
+  fetchPostByIdAPI,
+  updatePostAPI,
+} from "@/services/post.service";
+import {
+  deleteUserAPI,
   fetchAccListAPI,
   fetchUserData,
   updateUserAPI,
 } from "@/services/user.serivce";
-import { FoundAccsType } from "@/services/user.type";
+import { DeleteUserPayload, FoundAccsType } from "@/services/user.type";
+import { DeviceLocation } from "@/util/common.util";
+import { setEditPostDialog } from "@/redux/slices/dialogSlice";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -86,7 +94,7 @@ export const VisuallyHiddenInput = styled("input")({
 const UserLayout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
-  const [isLoading, setLoading] = useState<boolean>(false);
+  const [isLoading, setLoading] = useState<boolean>(true);
   const [sideBar, setSideBar] = useState<boolean>(true);
   const [userAccAnchor, setUserAccAnchor] = useState<null | HTMLElement>(null);
   const [settingDialog, setSettingDialog] = useState<boolean>(false);
@@ -104,7 +112,9 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [changeCNewPassEye, setChangeCNewPassEye] = useState<boolean>(false);
   const [deleteAccPassEye, setDeleteAccPassEye] = useState<boolean>(false);
   const [userPic, setUserPic] = useState<string | null>(null);
-  const [PostPhoto, setPostPhoto] = useState<string | null>(null);
+  const [PostPhoto, setPostPhoto] = useState<string | null | StaticImageData>(
+    null
+  );
   const [selectedMergeAcc, setSelectedMergeAcc] = useState<Record<string, any>>(
     {}
   );
@@ -117,7 +127,43 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     email: "abc1@gmail.com",
   };
 
+  const editPostDialog = useSelector(
+    (state: RootState) => state.dialogs.editPostDialog
+  );
+
   const userData = useSelector((state: RootState) => state.user.userData);
+
+  const fetchUserDataFunc = async () => {
+    try {
+      setLoading(true);
+      await fetchUserData();
+    } catch (error) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserDataFunc();
+  }, []);
+
+  useEffect(() => {
+    if (settingDialog && userData) {
+      // Setting account form values
+
+      console.log("userData-updated: ", userData);
+      setUserPic(userData.userPhoto);
+      accountSetValue("display_name", userData.userDisplayName);
+      accountSetValue("username", userData.userName);
+      accountSetValue("dob", new Date(userData.userDob));
+      accountSetValue("email", userData.userEmail);
+      accountSetValue("gender", userData.userGender);
+      accountSetValue("password", userData.password ?? "");
+    }
+  }, [userData, settingDialog]);
 
   const openUserAccMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
     setUserAccAnchor(event.currentTarget);
@@ -141,17 +187,21 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   } = useForm({
     resolver: yupResolver(userProfileSchema),
     defaultValues: {
-      user_photo: "",
-      user_display_name: "",
-      user_username: "",
-      user_dob: undefined,
-      user_email: "",
-      user_gender: "",
-      user_password: "*********",
+      profile_photo: "",
+      display_name: "",
+      username: "",
+      dob: undefined,
+      email: "",
+      gender: "",
+      password: "",
     },
   });
 
-  const userPhoto: any = accountFormWatch("user_photo");
+  useEffect(() => {
+    console.log("accountErrors: ", accountErrors);
+  }, [accountErrors]);
+
+  const userPhoto: any = accountFormWatch("profile_photo");
 
   useEffect(() => {
     console.log("userPhoto", userPhoto);
@@ -172,15 +222,12 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
     try {
       let updateUserData = new FormData();
 
-      updateUserData.append("signup_display_name", data.user_display_name);
-      updateUserData.append("signup_gender", data.user_gender);
-      updateUserData.append(
-        "signup_dob",
-        new Date(data.user_dob).toISOString()
-      );
+      updateUserData.append("display_name", data.display_name);
+      updateUserData.append("gender", data.gender);
+      updateUserData.append("dob", new Date(data.dob).toISOString());
 
-      if (data.user_photo) {
-        updateUserData.append("user_photo", data.user_photo as File);
+      if (data.profile_photo) {
+        updateUserData.append("profile_photo", data.profile_photo as File);
       }
 
       const updateUserRes = await updateUserAPI(
@@ -193,7 +240,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
       if (updateUserRes.status === 200) {
         toast.success(updateUserRes.message);
         await fetchUserData();
-        // openSettingDialog();
       } else {
         toast.error(updateUserRes.message);
       }
@@ -214,7 +260,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
   const {
     control: addPostControl,
     handleSubmit: addPostSubmit,
-    watch: postWatch,
+    watch: addPostWatch,
     reset: addPostReset,
     formState: { errors: addPostErrors },
   } = useForm({
@@ -225,16 +271,16 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
     },
   });
 
-  const postPhoto: any = postWatch("post_photo");
+  const addPostPhoto: any = addPostWatch("post_photo");
 
   useEffect(() => {
-    console.log("post_photo", postPhoto);
-    if (postPhoto && userPhotoSupportedFormats.includes(postPhoto.type)) {
-      const photoUrl = URL.createObjectURL(postPhoto);
+    console.log("post_photo", addPostPhoto);
+    if (addPostPhoto && userPhotoSupportedFormats.includes(addPostPhoto.type)) {
+      const photoUrl = URL.createObjectURL(addPostPhoto);
       console.log("photoUrl", photoUrl);
       setPostPhoto(photoUrl);
     } else setPostPhoto(null);
-  }, [postPhoto]);
+  }, [addPostPhoto]);
 
   const openAddDialog = () => {
     setAddDialog(true);
@@ -285,19 +331,60 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
   const {
     control: changePassControl,
     handleSubmit: changePassSubmit,
+    setValue: changePassSetVal,
     reset: changePassReset,
     formState: { errors: changePassErrors },
   } = useForm<PassChangeSchemaType>({
     resolver: yupResolver(passChangeSchema),
+    defaultValues: {
+      currrent_password: "",
+      password: "",
+      cpassword: "",
+    },
   });
 
-  const onPassChange = (data: any) => {
-    console.log(data);
+  const onPassChange = async (data: PassChangeSchemaType) => {
+    console.log("Data: ", data);
+
+    try {
+      let updateUserData = new FormData();
+
+      updateUserData.append("currrent_password", data.currrent_password);
+      updateUserData.append("password", data.password);
+
+      const updateUserRes = await updateUserAPI(
+        userData.userId,
+        updateUserData
+      );
+
+      console.log("updateUserRes: ", updateUserRes);
+
+      if (updateUserRes.status === 200) {
+        toast.success(updateUserRes.message);
+        await fetchUserData();
+        closeChangePassDialog();
+      } else {
+        toast.error(updateUserRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  useEffect(() => {
+    console.log("changePassErrors: ", changePassErrors);
+  }, [changePassErrors]);
 
   const openChangePassDialog = () => {
     setChangePassDialog(true);
     changePassReset();
+    if (!userData.password) {
+      changePassSetVal("currrent_password", userData.userId);
+    }
   };
 
   const closeChangePassDialog = () => {
@@ -313,10 +400,44 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
     formState: { errors: delAccErrors },
   } = useForm({
     resolver: yupResolver(deleteAccSchema),
+    defaultValues: {
+      user_consent: false,
+      email: "",
+      password: "",
+      reason_for_delete: "",
+    },
   });
 
-  const onDeleteAcc = (data: any) => {
+  const onDeleteAcc = async (data: DeleteAccSchemaType) => {
     console.log(data);
+
+    try {
+      setLoading(true);
+      const deleteAccPayload: DeleteUserPayload = {
+        user_id: userData.userId,
+        reason_for_delete: data.reason_for_delete,
+        email: data.email,
+        password: data.password,
+        user_consent: data.user_consent ?? false,
+      };
+
+      const deleteUserRes = await deleteUserAPI(deleteAccPayload);
+
+      console.log("deleteUserRes: ", deleteUserRes);
+
+      if (deleteUserRes.status === 200) {
+        toast.success(deleteUserRes.message);
+        router.replace("/login");
+      } else {
+        toast.error(deleteUserRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const openDelAccDialog = () => {
@@ -330,19 +451,6 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
   const openSettingDialog = () => {
     setSettingDialog(true);
-
-    // Setting account form values
-    if (userData) {
-      console.log("userData: ", userData);
-      // accountSetValue("user_photo", userData.userPhoto);
-      setUserPic(userData.userPhoto);
-      accountSetValue("user_display_name", userData.userDisplayName);
-      accountSetValue("user_username", userData.userName);
-      accountSetValue("user_dob", new Date(userData.userDob));
-      accountSetValue("user_email", userData.userEmail);
-      accountSetValue("user_gender", userData.userGender);
-      accountSetValue("user_password", "*********");
-    }
   };
 
   const closeSettingDialog = () => {
@@ -426,6 +534,116 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
     selectAccReset();
   }, [settingActiveTab]);
 
+  // Edit Dialog
+  const {
+    control: editPostControl,
+    handleSubmit: editPostSubmit,
+    watch: editPostWatch,
+    reset: editPostReset,
+    setValue: editPostSetValue,
+    formState: { errors: editPostErrors },
+  } = useForm({
+    resolver: yupResolver(addPostSchema),
+    defaultValues: {
+      post_title: "",
+      post_text: "",
+      post_photo: null,
+    },
+  });
+
+  const editPostPhoto: any = editPostWatch("post_photo");
+
+  useEffect(() => {
+    if (
+      editPostPhoto &&
+      userPhotoSupportedFormats.includes(editPostPhoto.type)
+    ) {
+      const photoUrl = URL.createObjectURL(editPostPhoto);
+      console.log("photoUrl", photoUrl);
+      setPostPhoto(photoUrl);
+    }
+  }, [editPostPhoto]);
+
+  const openEditDialog = async (post_id: string) => {
+    dispatch(setEditPostDialog({ status: true, post_id }));
+    setLoading(true);
+    console.log("post_id: ", post_id);
+
+    // fetch the post data
+    try {
+      const fetchPostByIdRes = await fetchPostByIdAPI(post_id);
+
+      console.log("fetchPostByIdRes: ", fetchPostByIdRes);
+
+      if (fetchPostByIdRes.status === 200) {
+        editPostSetValue("post_title", fetchPostByIdRes.post.post_title);
+        editPostSetValue("post_text", fetchPostByIdRes.post.post_text);
+
+        if (fetchPostByIdRes.post.post_image) {
+          setPostPhoto(fetchPostByIdRes.post.post_image);
+        }
+      } else {
+        toast.error(fetchPostByIdRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const closeEditDialog = () => {
+    if (!isLoading) {
+      dispatch(setEditPostDialog({ status: false, post_id: "" }));
+      editPostReset();
+      setPostPhoto(defaultImage);
+    }
+  };
+
+  const onEditPost = async (data: AddPostSchemaType) => {
+    console.log(data);
+    setLoading(true);
+
+    try {
+      let updatePostData = new FormData();
+      updatePostData.append("post_title", data.post_title);
+      updatePostData.append("post_text", data.post_text);
+
+      if (data.post_photo) {
+        updatePostData.append("post_photo", data.post_photo as File);
+      }
+
+      const updatePostRes = await updatePostAPI(
+        editPostDialog.post_id,
+        updatePostData
+      );
+      console.log("updatePostRes: ", updatePostRes);
+      if (updatePostRes.status === 200) {
+        toast.success(updatePostRes.message);
+        closeEditDialog();
+        window.location.reload();
+      } else {
+        toast.error(updatePostRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (editPostDialog.status) {
+      openEditDialog(editPostDialog.post_id);
+    } else {
+      closeEditDialog();
+    }
+  }, [editPostDialog.status]);
+
   return (
     <div className="w-full max-h-screen overflow-hidden flex">
       {/* Side bar */}
@@ -454,9 +672,21 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   sx={{ width: 28, height: 28 }}
                 />
 
-                <p className="text-black text-sm font-semibold capitalize">
-                  {userData.userDisplayName ?? "Guest"}
-                </p>
+                {/* Loader */}
+                {isLoading ? (
+                  <CircularProgress
+                    size="20px"
+                    sx={{
+                      "&.MuiCircularProgress-root": {
+                        color: "#62748e",
+                      },
+                    }}
+                  />
+                ) : (
+                  <p className="text-black text-sm font-semibold capitalize">
+                    {userData.userDisplayName ?? "Guest"}
+                  </p>
+                )}
               </div>
               <IoIosArrowDown />
             </button>
@@ -505,7 +735,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
         <ul className="flex flex-col">
           <li className="hover:bg-slate-200">
             <button
-              disabled={isMerging}
+              disabled={isMerging || isLoading}
               type="button"
               className="w-full p-2 flex items-center text-primary disabled:text-slate-300 gap-2 cursor-pointer disabled:cursor-not-allowed"
               onClick={openAddDialog}
@@ -643,7 +873,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                       )}
                     />
                     <p className="max-w-full overflow-x-hidden text-black/70 text-xs">
-                      {postPhoto && postPhoto?.name}
+                      {addPostPhoto && addPostPhoto?.name}
                     </p>
                   </div>
 
@@ -657,7 +887,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                 <div className="flex-1 mx-auto border border-slate-300 rounded-lg">
                   <Image
                     src={
-                      !accountErrors.user_photo?.message && PostPhoto
+                      !accountErrors.profile_photo?.message && PostPhoto
                         ? PostPhoto
                         : defaultImage
                     }
@@ -675,6 +905,177 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   className="px-3 py-2 rounded-md bg-primary text-white font-semibold cursor-pointer"
                 >
                   {isLoading ? "Adding..." : "Add Post"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </Dialog>
+
+        {/* Edit Post Dialog */}
+        <Dialog
+          fullWidth={true}
+          maxWidth={"sm"}
+          open={editPostDialog.status}
+          onClose={closeEditDialog}
+          sx={{
+            "& .MuiDialog-paper": {
+              borderRadius: "10px",
+              overflow: "hidden",
+            },
+          }}
+        >
+          <div
+            className={`relative max-h-[calc(100vh-64px)] ${
+              isLoading ? "overflow-hidden" : "overflow-y-auto"
+            } hideScrollBar`}
+          >
+            {/* Loader */}
+            {isLoading && (
+              <div className="sticky inset-0 min-h-[calc(100vh-64px)] h-full w-full z-1500 bg-black/40 flex items-center justify-center">
+                <CircularProgress
+                  size="34px"
+                  sx={{
+                    "&.MuiCircularProgress-root": {
+                      color: "#e1533c",
+                    },
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Headers */}
+            <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
+              <p>Edit Post</p>
+              <button
+                type="button"
+                onClick={closeEditDialog}
+                className="cursor-pointer"
+              >
+                <IoMdClose className="text-2xl text-red-500" />
+              </button>
+            </div>
+
+            {/* Edit Post Form */}
+            <form className="w-full p-4" onSubmit={editPostSubmit(onEditPost)}>
+              {/* Post title */}
+              <div className="mb-2">
+                <Controller
+                  name="post_title"
+                  control={editPostControl}
+                  render={({ field: { value, onChange, name } }) => (
+                    <TextField
+                      label="Post title"
+                      placeholder="Enter post title"
+                      name={name}
+                      value={value}
+                      onChange={onChange}
+                      variant="outlined"
+                      className="w-full"
+                      error={editPostErrors.post_title?.message ? true : false}
+                      helperText={
+                        editPostErrors.post_title?.message
+                          ? `${editPostErrors.post_title.message}`
+                          : " "
+                      }
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Post text */}
+              <div className="mb-2">
+                <Controller
+                  name="post_text"
+                  control={editPostControl}
+                  render={({ field: { value, onChange, name } }) => (
+                    <TextField
+                      multiline
+                      minRows={4}
+                      label="Description"
+                      placeholder="Enter post description... "
+                      name={name}
+                      value={value}
+                      onChange={onChange}
+                      variant="outlined"
+                      className="w-full"
+                      error={editPostErrors.post_text?.message ? true : false}
+                      helperText={
+                        editPostErrors.post_text?.message
+                          ? `${editPostErrors.post_text.message}`
+                          : " "
+                      }
+                    />
+                  )}
+                />
+              </div>
+
+              {/* Photo */}
+              <div className="flex flex-col gap-2 mb-7">
+                <div className="flex flex-col">
+                  <div className="flex  items-center gap-5 mb-2">
+                    <p className="font-semibold">Photo</p>
+                    <Controller
+                      name="post_photo"
+                      control={editPostControl}
+                      render={({ field: { name, onChange } }) => (
+                        <label>
+                          <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white text-nowrap font-semibold cursor-pointer">
+                            Choose photo
+                          </p>
+                          <VisuallyHiddenInput
+                            type="file"
+                            name={name}
+                            onChange={(event) => {
+                              if (event.target.files) {
+                                onChange(event.target.files[0]);
+                              }
+                            }}
+                          />
+                        </label>
+                      )}
+                    />
+                    <p className="max-w-full overflow-x-hidden text-black/70 text-xs">
+                      {editPostPhoto && editPostPhoto?.name}
+                    </p>
+                  </div>
+
+                  <p className="min-h-6 text-red-500 text-xs">
+                    {editPostErrors.post_photo
+                      ? editPostErrors.post_photo?.message
+                      : " "}
+                  </p>
+                </div>
+
+                <div className="relative w-full h-[300px] max-h-[300px] mx-auto border border-slate-300 rounded-lg">
+                  {PostPhoto ? (
+                    <Image
+                      src={PostPhoto}
+                      alt="Post image"
+                      width={500}
+                      height={300}
+                      className="w-full h-auto max-h-[300px] rounded-lg"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 z-10 flex justify-center items-center">
+                      <CircularProgress
+                        size="34px"
+                        sx={{
+                          "&.MuiCircularProgress-root": {
+                            color: "#e1533c",
+                          },
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="text-center">
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-md bg-primary text-white font-semibold cursor-pointer"
+                >
+                  Edit Post
                 </button>
               </div>
             </form>
@@ -774,7 +1175,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                     <div className="flex-1 flex flex-col gap-3">
                       <div className="">
                         <Controller
-                          name="user_photo"
+                          name="profile_photo"
                           control={accountControl}
                           render={({ field: { name, value, onChange } }) => (
                             <label className="flex items-center gap-4">
@@ -814,8 +1215,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             : "No file selected"}
                         </p>
                         <p className="min-h-4 text-red-500 text-xs">
-                          {accountErrors.user_photo
-                            ? accountErrors.user_photo?.message
+                          {accountErrors.profile_photo
+                            ? accountErrors.profile_photo?.message
                             : " "}
                         </p>
                       </div>
@@ -825,9 +1226,9 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   {/* Username */}
                   <div className="mb-3">
                     <Controller
-                      name="user_username"
+                      name="username"
                       control={accountControl}
-                      render={({ field: { value, onChange, name } }) => (
+                      render={({ field: { value, name } }) => (
                         <TextField
                           label="Username"
                           disabled
@@ -837,8 +1238,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                           variant="outlined"
                           className="w-[400px]"
                           helperText={
-                            accountErrors.user_username?.message
-                              ? `${accountErrors.user_username.message}`
+                            accountErrors.display_name?.message
+                              ? `${accountErrors.display_name.message}`
                               : " "
                           }
                         />
@@ -849,7 +1250,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   {/* Display name */}
                   <div className="mb-3 ">
                     <Controller
-                      name="user_display_name"
+                      name="display_name"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <TextField
@@ -861,13 +1262,11 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                           variant="outlined"
                           className="w-[400px]"
                           error={
-                            accountErrors.user_display_name?.message
-                              ? true
-                              : false
+                            accountErrors.display_name?.message ? true : false
                           }
                           helperText={
-                            accountErrors.user_display_name?.message
-                              ? `${accountErrors.user_display_name.message}`
+                            accountErrors.display_name?.message
+                              ? `${accountErrors.display_name.message}`
                               : " "
                           }
                         />
@@ -878,7 +1277,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   {/* Birthdate */}
                   <div className="mb-3">
                     <Controller
-                      name="user_dob"
+                      name="dob"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -892,11 +1291,11 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             }
                             slotProps={{
                               textField: {
-                                error: accountErrors.user_dob?.message
+                                error: accountErrors.dob?.message
                                   ? true
                                   : false,
-                                helperText: accountErrors.user_dob?.message
-                                  ? `${accountErrors.user_dob.message}`
+                                helperText: accountErrors.dob?.message
+                                  ? `${accountErrors.dob.message}`
                                   : " ",
                               },
                             }}
@@ -914,7 +1313,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   {/* Gender */}
                   <div className="mb-2">
                     <Controller
-                      name="user_gender"
+                      name="gender"
                       control={accountControl}
                       render={({ field: { name, value, onChange } }) => (
                         <div className="w-[400px]">
@@ -939,8 +1338,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             </RadioGroup>
                           </div>
                           <p className="text-xs px-3.5 text-[#D32F2F]">
-                            {accountErrors.user_gender?.message ? (
-                              `${accountErrors.user_gender.message}`
+                            {accountErrors.gender?.message ? (
+                              `${accountErrors.gender.message}`
                             ) : (
                               <>&nbsp;</>
                             )}
@@ -953,7 +1352,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   {/* Email */}
                   <div className="mb-2">
                     <Controller
-                      name="user_email"
+                      name="email"
                       control={accountControl}
                       render={({ field: { value, onChange, name } }) => (
                         <TextField
@@ -975,43 +1374,49 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
                   {/* Password */}
                   <div className="mb-2">
-                    <div className="mb-3">
-                      <Controller
-                        name="user_password"
-                        control={accountControl}
-                        render={({ field: { onChange, name } }) => (
-                          <TextField
-                            disabled
-                            type={accountPassEye ? "text" : "password"}
-                            label="Password"
-                            placeholder="Enter password "
-                            size="small"
-                            name={name}
-                            value={"***********"}
-                            onChange={onChange}
-                            variant="outlined"
-                            className="w-[400px]"
-                            error={false}
-                            helperText={" "}
-                          />
-                        )}
-                      />
-                    </div>
+                    {userData.password && (
+                      <div className="mb-3">
+                        <Controller
+                          name="password"
+                          control={accountControl}
+                          render={({ field: { onChange, name, value } }) => (
+                            <TextField
+                              disabled
+                              type={accountPassEye ? "text" : "password"}
+                              label="Password"
+                              placeholder="Enter password "
+                              size="small"
+                              name={name}
+                              value={value}
+                              onChange={onChange}
+                              variant="outlined"
+                              className="w-[400px]"
+                              error={false}
+                              helperText={" "}
+                            />
+                          )}
+                        />
+                      </div>
+                    )}
 
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
-                        onClick={openChangePassDialog}
-                      >
-                        Change Password
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
-                      >
-                        Add Password
-                      </button>
+                      {userData.password ? (
+                        <button
+                          type="button"
+                          className="px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
+                          onClick={openChangePassDialog}
+                        >
+                          Change Password
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          className="px-2.5 py-1.5 text-sm rounded-md bg-primary text-white font-semibold cursor-pointer"
+                          onClick={openChangePassDialog}
+                        >
+                          Add Password
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -1091,13 +1496,20 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
                 {/* Content */}
                 <form
+                  encType="multipart/form-data"
                   className="flex-1 p-4 flex flex-col justify-between"
                   onSubmit={changePassSubmit(onPassChange)}
                 >
                   {/* Inputs */}
                   <div>
                     {/* Current Password */}
-                    <div className="mb-2">
+                    <div
+                      className={`mb-2 ${
+                        userData.password
+                          ? ""
+                          : "max-w-0 max-h-0 overflow-hidden opacity-0 -z-10"
+                      }`}
+                    >
                       <Controller
                         name="currrent_password"
                         control={changePassControl}
@@ -1153,7 +1565,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                     {/* New Password */}
                     <div className="mb-2">
                       <Controller
-                        name="new_password"
+                        name="password"
                         control={changePassControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
@@ -1188,13 +1600,11 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                               },
                             }}
                             error={
-                              changePassErrors.new_password?.message
-                                ? true
-                                : false
+                              changePassErrors.password?.message ? true : false
                             }
                             helperText={
-                              changePassErrors.new_password?.message
-                                ? `${changePassErrors.new_password.message}`
+                              changePassErrors.password?.message
+                                ? `${changePassErrors.password.message}`
                                 : " "
                             }
                           />
@@ -1205,7 +1615,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                     {/* Confirm new Password */}
                     <div className="mb-2">
                       <Controller
-                        name="cnew_password"
+                        name="cpassword"
                         control={changePassControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
@@ -1240,19 +1650,23 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                               },
                             }}
                             error={
-                              changePassErrors.cnew_password?.message
-                                ? true
-                                : false
+                              changePassErrors.cpassword?.message ? true : false
                             }
                             helperText={
-                              changePassErrors.cnew_password?.message
-                                ? `${changePassErrors.cnew_password.message}`
+                              changePassErrors.cpassword?.message
+                                ? `${changePassErrors.cpassword.message}`
                                 : " "
                             }
                           />
                         )}
                       />
                     </div>
+
+                    <p className="text-sm text-red-600">
+                      Please note: once your password is changed, all other
+                      active sessions will be ended, and you will need to log in
+                      again.
+                    </p>
                   </div>
 
                   {/* Submit buttons */}
@@ -1270,8 +1684,22 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
                     <button
                       type="submit"
-                      className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md"
+                      disabled={isLoading}
+                      className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md
+                      disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500
+                      "
                     >
+                      {/* Loader */}
+                      {isLoading && (
+                        <CircularProgress
+                          size="16px"
+                          sx={{
+                            "&.MuiCircularProgress-root": {
+                              color: "#62748e",
+                            },
+                          }}
+                        />
+                      )}
                       Change password
                     </button>
                   </div>
@@ -1329,13 +1757,13 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                     {/* Reason for deleting (optional) */}
                     <div className="mb-2">
                       <Controller
-                        name="reason_fot_delete"
+                        name="reason_for_delete"
                         control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
                             multiline
                             minRows={4}
-                            label="Reason for deleting (optional)"
+                            label="Reason for deleting account (optional)"
                             placeholder="Enter reasons here... "
                             name={name}
                             value={value}
@@ -1343,13 +1771,13 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             variant="outlined"
                             className="w-full"
                             error={
-                              delAccErrors.reason_fot_delete?.message
+                              delAccErrors.reason_for_delete?.message
                                 ? true
                                 : false
                             }
                             helperText={
-                              delAccErrors.reason_fot_delete?.message
-                                ? `${delAccErrors.reason_fot_delete.message}`
+                              delAccErrors.reason_for_delete?.message
+                                ? `${delAccErrors.reason_for_delete.message}`
                                 : " "
                             }
                           />
@@ -1360,7 +1788,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                     {/* Email */}
                     <div className="mb-2">
                       <Controller
-                        name="del_acc_email"
+                        name="email"
                         control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
@@ -1372,12 +1800,10 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                             onChange={onChange}
                             variant="outlined"
                             className="w-full"
-                            error={
-                              delAccErrors.del_acc_email?.message ? true : false
-                            }
+                            error={delAccErrors.email?.message ? true : false}
                             helperText={
-                              delAccErrors.del_acc_email?.message
-                                ? `${delAccErrors.del_acc_email.message}`
+                              delAccErrors.email?.message
+                                ? `${delAccErrors.email.message}`
                                 : " "
                             }
                           />
@@ -1385,16 +1811,17 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                       />
                     </div>
 
-                    {/* Current Password */}
+                    {/* Password */}
                     <div className="mb-2">
                       <Controller
-                        name="del_acc_password"
+                        name="password"
                         control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
                           <TextField
                             type={deleteAccPassEye ? "text" : "password"}
                             size="small"
                             label="Password"
+                            autoComplete="new-password"
                             placeholder="Enter password "
                             name={name}
                             value={value}
@@ -1423,13 +1850,11 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                               },
                             }}
                             error={
-                              delAccErrors.del_acc_password?.message
-                                ? true
-                                : false
+                              delAccErrors.password?.message ? true : false
                             }
                             helperText={
-                              delAccErrors.del_acc_password?.message
-                                ? `${delAccErrors.del_acc_password.message}`
+                              delAccErrors.password?.message
+                                ? `${delAccErrors.password?.message}`
                                 : " "
                             }
                           />
@@ -1442,14 +1867,18 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                   <div>
                     <div>
                       <Controller
-                        name="acc_delete_user_consent"
+                        name="user_consent"
                         control={delAccControl}
                         render={({ field: { value, onChange, name } }) => (
                           <label className="flex items-center">
                             <Checkbox
                               name={name}
                               checked={value}
-                              onChange={onChange}
+                              onChange={(
+                                event: React.ChangeEvent<HTMLInputElement>
+                              ) => {
+                                onChange(event.target.checked);
+                              }}
                             />
                             <p>
                               I understand that delete accounts aren't
@@ -1459,8 +1888,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                         )}
                       />
                       <p className="min-h-5 text-xs px-4 text-[#d32f2f]">
-                        {delAccErrors.acc_delete_user_consent
-                          ? delAccErrors.acc_delete_user_consent?.message
+                        {delAccErrors.user_consent
+                          ? delAccErrors.user_consent?.message
                           : " "}
                       </p>
                     </div>
@@ -1476,8 +1905,21 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
 
                       <button
                         type="submit"
-                        className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md"
+                        disabled={isLoading}
+                        className="py-2 px-3 bg-primary cursor-pointer text-white text-sm font-semibold rounded-md
+                        disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500"
                       >
+                        {/* Loader */}
+                        {isLoading && (
+                          <CircularProgress
+                            size="16px"
+                            sx={{
+                              "&.MuiCircularProgress-root": {
+                                color: "#62748e",
+                              },
+                            }}
+                          />
+                        )}
                         Delete Account
                       </button>
                     </div>

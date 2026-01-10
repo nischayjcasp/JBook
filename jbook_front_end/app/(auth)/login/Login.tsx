@@ -107,15 +107,14 @@ const Login = () => {
   } = useForm<LoginSchemaType>({
     resolver: yupResolver(loginSchema),
     defaultValues: {
-      login_email: "",
-      login_password: "",
+      email: "",
+      password: "",
     },
   });
 
   const handleEmailLogin = async (data: LoginSchemaType) => {
     setLoading(true);
 
-    const device_id: string = DeviceId();
     const deviceIpRes = await getDeivceIpAPI();
     const deviceIp = await DeviceLocation();
 
@@ -123,8 +122,8 @@ const Login = () => {
 
     try {
       const payload: EmailLoginPayloadType = {
-        login_email: data.login_email,
-        login_password: data.login_password,
+        email: data.email,
+        password: data.password,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
         device_lat: deviceIp.lat,
@@ -407,7 +406,7 @@ const Login = () => {
           {/* Login Email */}
           <div className="mb-2">
             <Controller
-              name="login_email"
+              name="email"
               control={loginControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
@@ -418,10 +417,10 @@ const Login = () => {
                   onChange={onChange}
                   variant="outlined"
                   className="w-full"
-                  error={loginErrors.login_email?.message ? true : false}
+                  error={loginErrors.email?.message ? true : false}
                   helperText={
-                    loginErrors.login_email?.message
-                      ? `${loginErrors.login_email.message}`
+                    loginErrors.email?.message
+                      ? `${loginErrors.email.message}`
                       : " "
                   }
                 />
@@ -432,13 +431,14 @@ const Login = () => {
           {/* Login Password */}
           <div className="mb-2">
             <Controller
-              name="login_password"
+              name="password"
               control={loginControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
                   type={loginPassEye ? "text" : "password"}
                   label="Password"
-                  placeholder="Enter password "
+                  autoComplete="new-password"
+                  placeholder="Enter password"
                   name={name}
                   value={value}
                   slotProps={{
@@ -459,10 +459,10 @@ const Login = () => {
                   onChange={onChange}
                   variant="outlined"
                   className="w-full"
-                  error={loginErrors.login_password?.message ? true : false}
+                  error={loginErrors.password?.message ? true : false}
                   helperText={
-                    loginErrors.login_password?.message
-                      ? `${loginErrors.login_password.message}`
+                    loginErrors.password?.message
+                      ? `${loginErrors.password.message}`
                       : " "
                   }
                 />

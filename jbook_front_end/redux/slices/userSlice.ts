@@ -15,6 +15,7 @@ interface UserSliceType {
     userDob: Date | string;
     userGender: string;
     userEmail: string;
+    password: string | undefined;
     userPhoto: string;
     conncetedAcc: ConnectedAccType[];
   };
@@ -29,6 +30,7 @@ const initialState: UserSliceType = {
     userDob: "",
     userGender: "",
     userEmail: "",
+    password: undefined,
     userPhoto: "",
     conncetedAcc: [],
   },

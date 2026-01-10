@@ -1,6 +1,6 @@
 import API from "@/lib/api";
 import { LoginApiRes } from "./auth.type";
-import { FetchAccListRes, userData } from "./user.type";
+import { DeleteUserPayload, FetchAccListRes, userData } from "./user.type";
 import { ReduxStore } from "@/redux/store";
 import { setUserdata } from "@/redux/slices/userSlice";
 import { toast } from "react-toastify";
@@ -28,6 +28,7 @@ export const fetchUserData = async () => {
           userDob: userDataRes.user.dob,
           userGender: userDataRes.user.gender,
           userEmail: userDataRes.user.email,
+          password: userDataRes.user.password,
           userPhoto: userDataRes.user.profile_photo,
           conncetedAcc: [],
         })
@@ -58,5 +59,14 @@ export const updateUserAPI = async (
   user_id: string,
   updateUserData: FormData
 ): Promise<{ status: number; message: string; user: userData }> => {
-  return API.post(`user/update/${user_id}`, updateUserData);
+  return API.post(`/user/update/${user_id}`, updateUserData);
+};
+
+export const deleteUserAPI = async (
+  deleteUserPayload: DeleteUserPayload
+): Promise<{ status: number; message: string }> => {
+  const payload: Partial<DeleteUserPayload> = { ...deleteUserPayload };
+  delete payload.user_id;
+
+  return API.post(`/user/delete/${deleteUserPayload.user_id}`, payload);
 };

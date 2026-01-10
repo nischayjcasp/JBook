@@ -3,7 +3,7 @@ import { CreatePostDto } from "./dto/create-post.dto";
 import { UpdatePostDto } from "./dto/update-post.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Post } from "./entities/post.entity";
-import { Repository } from "typeorm";
+import { ILike, Like, Repository } from "typeorm";
 import { v2 as cloudinary } from "cloudinary";
 import { UploadLog, UploadStatus } from "./entities/uploadLog.entity";
 
@@ -51,12 +51,31 @@ export class PostService {
     }
   }
 
-  async getAllPost(user_id: string) {
+  async getAllPost(user_id: string, searchText: string) {
     try {
+      let findPosts: Post[];
+
       // Check if user already registered?
-      const findPosts = await this.postsRepo.find({
-        where: { user_id },
-      });
+      if (searchText) {
+        findPosts = await this.postsRepo.find({
+          where: [
+            {
+              user_id,
+              post_title: ILike(`%${searchText}%`),
+            },
+            {
+              user_id,
+              post_text: ILike(`%${searchText}%`),
+            },
+          ],
+        });
+      } else {
+        findPosts = await this.postsRepo.find({
+          where: {
+            user_id,
+          },
+        });
+      }
 
       return {
         status: 200,

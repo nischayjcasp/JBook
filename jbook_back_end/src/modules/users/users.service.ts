@@ -1,13 +1,19 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Users } from "./entities/user.entity";
 import { Like, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { UpdateUserDto } from "./dto/update-user.dto";
-import { UserSession } from "../session/entities/user_session.entity";
+import {
+  SessionStatus,
+  UserSession,
+} from "../session/entities/user_session.entity";
 import { v2 as cloudinary } from "cloudinary";
 import { UploadLog, UploadStatus } from "../post/entities/uploadLog.entity";
+import { DeleteUserLog } from "./entities/deleteUserLog.entity";
+import { DeleteUserDto } from "./dto/deleteUser.dto";
+import { SessionService } from "../session/session.service";
 
 @Injectable()
 export class UsersService {
@@ -17,7 +23,10 @@ export class UsersService {
     @InjectRepository(UserSession)
     private readonly sessionRepo: Repository<UserSession>,
     @InjectRepository(UploadLog)
-    private readonly uploadLogRepo: Repository<UploadLog>
+    private readonly uploadLogRepo: Repository<UploadLog>,
+    @InjectRepository(DeleteUserLog)
+    private readonly delteAccLogRepo: Repository<DeleteUserLog>,
+    private readonly sessionService: SessionService
   ) {}
 
   async getUser(user_id: string, seatchText: string) {
@@ -82,6 +91,7 @@ export class UsersService {
           mobile_no: findUser.mobile_no,
           profile_photo: findUser.profile_photo,
           username: findUser.username,
+          password: findUser.password ? "********" : undefined,
         },
       };
     } catch (error) {
@@ -106,15 +116,17 @@ export class UsersService {
           mobile: string | null;
         }[] = [];
 
-        const findUsers = await this.usersRepo.find({
-          where: [
-            { display_name: Like(`%${seatchText}%`) },
-            { email: Like(`%${seatchText}%`) },
-            { mobile_no: Like(`%${seatchText}%`) },
-          ],
-        });
+        const userQueryBuilder = this.usersRepo.createQueryBuilder("users");
 
-        console.log("findUsers: ", findUsers);
+        const findUsers = await userQueryBuilder
+          .orderBy(
+            "SIMILARITY(users.display_name, :text) + SIMILARITY(users.email, :text) + SIMILARITY(users.mobile_no, :text)",
+            "DESC"
+          )
+          .setParameter("text", seatchText)
+          .getMany();
+
+        // console.log("findUsers: ", findUsers);
 
         findUsers.forEach((usr) => {
           userArr.push({
@@ -184,7 +196,7 @@ export class UsersService {
     try {
       // Check if user already registered?
       const findUser = await this.usersRepo.findOne({
-        where: { email: createUserDto.signup_email },
+        where: { email: createUserDto.email },
       });
 
       console.log("findUser: ", findUser);
@@ -204,26 +216,24 @@ export class UsersService {
 
       let tempSignupData = this.usersRepo.create();
 
-      if (createUserDto.signup_password) {
+      if (createUserDto.password) {
         // Hashing password before storing in DB
         const saltRound = 10;
-        const hash = await bcrypt.hash(
-          createUserDto.signup_password,
-          saltRound
-        );
+        const hash = await bcrypt.hash(createUserDto.password, saltRound);
 
-        createUserDto.signup_password = hash;
+        createUserDto.password = hash;
 
-        tempSignupData.password = createUserDto.signup_password;
+        tempSignupData.password = createUserDto.password;
       }
 
       // Creating new user
-      tempSignupData.display_name = createUserDto.signup_display_name as string;
-      tempSignupData.username = tempSignupData.display_name + Date.now();
-      tempSignupData.dob = createUserDto.signup_dob ?? null;
-      tempSignupData.email = createUserDto.signup_email as string;
-      tempSignupData.gender = createUserDto.signup_gender ?? null;
-      tempSignupData.mobile_no = createUserDto.signup_mobile ?? null;
+      tempSignupData.display_name = createUserDto.display_name as string;
+      tempSignupData.username =
+        tempSignupData.display_name.replace(" ", "").toLowerCase() + Date.now();
+      tempSignupData.dob = createUserDto.dob ? createUserDto.dob : null;
+      tempSignupData.email = createUserDto.email as string;
+      tempSignupData.gender = createUserDto.gender ?? null;
+      tempSignupData.mobile_no = createUserDto.mobile_no ?? null;
       tempSignupData.primary_account = null;
       tempSignupData.profile_photo = createUserDto.profile_photo ?? null;
 
@@ -259,8 +269,11 @@ export class UsersService {
   async updateUser(
     user_id: string,
     updateUserDto: UpdateUserDto,
+    session_id?: string,
     user_photo?: Express.Multer.File
   ) {
+    let isPasswordChanged: boolean = false;
+
     try {
       // Check if user already registered?
       const findUser = await this.usersRepo.findOne({
@@ -324,14 +337,32 @@ export class UsersService {
       }
 
       // Hashing password before storing in DB
-      if (updateUserDto.signup_password) {
-        const saltRound = 10;
-        const hash = await bcrypt.hash(
-          updateUserDto.signup_password,
-          saltRound
+      if (
+        updateUserDto.currrent_password &&
+        updateUserDto.currrent_password !== findUser.id
+      ) {
+        //Check credentials
+        const isMatching = await bcrypt.compare(
+          updateUserDto.currrent_password,
+          findUser.password as string
         );
 
-        findUser.password = hash;
+        if (!isMatching) {
+          return {
+            status: 401,
+            message: "Incorrect current password.",
+          };
+        }
+
+        delete updateUserDto.currrent_password;
+      }
+
+      if (updateUserDto.password) {
+        const saltRound = 10;
+        const hash = await bcrypt.hash(updateUserDto.password, saltRound);
+
+        updateUserDto.password = hash;
+        isPasswordChanged = true;
       }
 
       // Clearing the updateUserDto from null | undefined values
@@ -357,10 +388,29 @@ export class UsersService {
         };
       }
 
+      if (isPasswordChanged) {
+        //End all session except this one
+        const allActiveSessions = await this.sessionRepo.find({
+          where: {
+            user_id,
+            status: SessionStatus.ACTIVE,
+          },
+        });
+
+        allActiveSessions.forEach(async (ss) => {
+          if (ss.id !== session_id) {
+            const endSessionRes = await this.sessionService.endSession(ss.id);
+
+            if (endSessionRes.status !== 200) {
+              throw new InternalServerErrorException(endSessionRes.message);
+            }
+          }
+        });
+      }
+
       return {
         status: 200,
         message: "User updated successfully",
-        user: updateUserRes,
       };
     } catch (error) {
       console.log("error", error);
@@ -373,7 +423,11 @@ export class UsersService {
     }
   }
 
-  async deleteUser(user_id: string) {
+  async deleteUser(
+    deleteAccDto: DeleteUserDto,
+    user_id: string,
+    session_id: string
+  ) {
     try {
       // Check if user already registered?
       const findUser = await this.usersRepo.findOne({
@@ -387,6 +441,50 @@ export class UsersService {
         };
       }
 
+      // Check credentials
+      if (findUser.email !== deleteAccDto.email) {
+        return {
+          status: 401,
+          message: "Invalid credentials!",
+        };
+      }
+
+      //Check credentials
+      const isMatching = await bcrypt.compare(
+        deleteAccDto.password,
+        findUser.password as string
+      );
+
+      if (!isMatching) {
+        return {
+          status: 401,
+          message: "Invalid credentials!",
+        };
+      }
+
+      if (!deleteAccDto.user_consent) {
+        return {
+          status: 401,
+          message: "User consent is required!",
+        };
+      }
+
+      // End all users session
+      const allActiveSessions = await this.sessionRepo.find({
+        where: {
+          user_id,
+          status: SessionStatus.ACTIVE,
+        },
+      });
+
+      allActiveSessions.forEach(async (ss) => {
+        const endSessionRes = await this.sessionService.endSession(ss.id);
+
+        if (endSessionRes.status !== 200) {
+          throw new InternalServerErrorException(endSessionRes.message);
+        }
+      });
+
       // deleting user
       let deleteUserRes = await this.usersRepo.delete({ id: user_id });
 
@@ -396,6 +494,16 @@ export class UsersService {
           message: "Error occured during deleting the user.",
         };
       }
+
+      // Update delete account log
+      const deleteAccLog = this.delteAccLogRepo.create();
+
+      deleteAccLog.session_id = session_id;
+      deleteAccLog.user_id = user_id;
+      deleteAccLog.user_consent = deleteAccDto.user_consent;
+      deleteAccLog.reason_for_delete = deleteAccDto.reason_for_delete;
+
+      await this.delteAccLogRepo.save(deleteAccLog);
 
       return {
         status: 200,

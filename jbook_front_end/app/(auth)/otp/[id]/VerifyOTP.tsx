@@ -11,23 +11,22 @@ import {
   OtpVerificationSchema,
   OtpVerificationType,
 } from "@/lib/schemas/auth.schema";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { FotgotPasswordPayload } from "@/services/auth.type";
-import {
-  forgotPasswordAPI,
-  getDeivceIpAPI,
-  otpVerifyLoginAPI,
-} from "@/services/auth.service";
-import { DeviceLocation } from "@/util/common.util";
+import { otpVerifyLoginAPI, resendOtpAPI } from "@/services/auth.service";
 import { toast } from "react-toastify";
 import { CircularProgress } from "@mui/material";
 import { OtpInput } from "reactjs-otp-input";
 import OtpTimer from "@/components/auth/OtpTimer";
+import { useDispatch } from "react-redux";
+import { setSession, setUserdata } from "@/redux/slices/userSlice";
 
 const VerifyOTP = () => {
-  const navigate = useRouter();
+  const router = useRouter();
   const { id } = useParams();
+  const dispatch = useDispatch();
   const [isLoading, setLoading] = useState<boolean>(false);
+  const [isResending, setIsResending] = useState<boolean>(false);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [isOtpExpired, setIsOtpExpired] = useState<boolean>(false);
 
@@ -64,15 +63,9 @@ const VerifyOTP = () => {
 
     try {
       //OTP up payload
-      const deviceIpRes = await getDeivceIpAPI();
-      const deviceIp = await DeviceLocation();
-
-      const payload: FotgotPasswordPayload = {
+      const payload: Partial<FotgotPasswordPayload> = {
         otp_id: id as string,
         otp: data.otp,
-        device_ip: deviceIpRes.data?.ip ?? null,
-        device_lat: deviceIp.lat,
-        device_long: deviceIp.long,
       };
 
       const otpLoginRes = await otpVerifyLoginAPI(payload);
@@ -80,6 +73,13 @@ const VerifyOTP = () => {
       console.log("otpLoginRes: ", otpLoginRes);
 
       if (otpLoginRes.status === 200) {
+        dispatch(setSession(otpLoginRes.access_token));
+        dispatch(
+          setUserdata({
+            userId: otpLoginRes.user_id,
+          })
+        );
+        router.replace("/dashboard");
         toast.success(otpLoginRes.message);
       } else {
         toast.error(otpLoginRes.message);
@@ -89,9 +89,29 @@ const VerifyOTP = () => {
       let err = error as { message: string };
       toast.error(err.message);
     } finally {
-      setTimeout(() => {
-        setLoading(false);
-      }, 2000);
+      setLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    try {
+      setIsResending(true);
+      const otpLoginRes = await resendOtpAPI();
+
+      console.log("otpLoginRes: ", otpLoginRes);
+
+      if (otpLoginRes.status === 200) {
+        toast.success(otpLoginRes.message);
+        router.replace(`/otp/${otpLoginRes.otp_id}`);
+      } else {
+        toast.error(otpLoginRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -156,7 +176,7 @@ const VerifyOTP = () => {
                         <span>Remaining time:</span>
                         <OtpTimer
                           props={{
-                            time: 5,
+                            time: 60,
                             startTimerNow: isTimerRunning,
                             setStartTimerNow: setIsTimerRunning,
                             setIsExpired: setIsOtpExpired,
@@ -172,8 +192,19 @@ const VerifyOTP = () => {
                     <button
                       type="button"
                       disabled={isLoading}
-                      className="font-semibold cursor-pointer disabled:text-slate-500 disabled:cursor-default"
+                      className="font-semibold cursor-pointer text-primary disabled:text-slate-500 disabled:cursor-default flex items-center gap-1"
+                      onClick={handleResendOtp}
                     >
+                      {isResending && (
+                        <CircularProgress
+                          size={16}
+                          sx={{
+                            "&.MuiCircularProgress-root": {
+                              color: "#62748e",
+                            },
+                          }}
+                        />
+                      )}
                       Resend
                     </button>
                   </div>
@@ -208,7 +239,7 @@ const VerifyOTP = () => {
                 className="font-medium underline cursor-pointer text-primary disabled:text-slate-500 disabled:cursor-default"
                 onClick={() => {
                   otpReset();
-                  navigate.push("/login");
+                  router.push("/login");
                 }}
               >
                 Go to login

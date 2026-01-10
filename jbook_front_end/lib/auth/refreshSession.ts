@@ -17,11 +17,11 @@ export const refreshSession = async (session_id: string): Promise<boolean> => {
       return false;
     }
 
-    console.log(
-      "setCookieHeader: ",
-      typeof setCookieHeader,
-      setCookieHeader.toString().split(";")
-    );
+    // console.log(
+    //   "setCookieHeader: ",
+    //   typeof setCookieHeader,
+    //   setCookieHeader.toString().split(";")
+    // );
 
     cookieStore.set(
       setCookieHeader.toString().split("=")[0],
@@ -40,6 +40,22 @@ export const refreshSession = async (session_id: string): Promise<boolean> => {
       return true;
     } else {
       console.log("Failed Refreshed");
+
+      cookieStore.set("MERGER_ACCESS_TOKEN", "", {
+        httpOnly: true,
+        secure: false,
+        path: "/",
+        sameSite: "strict",
+        maxAge: 0,
+      });
+      cookieStore.set("MERGER_SESSION", "", {
+        httpOnly: true,
+        secure: false,
+        path: "/",
+        sameSite: "strict",
+        maxAge: 0,
+      });
+
       return false;
     }
   } catch (error) {

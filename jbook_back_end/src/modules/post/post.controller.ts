@@ -9,6 +9,7 @@ import {
   Req,
   UseInterceptors,
   UploadedFile,
+  Query,
 } from "@nestjs/common";
 import { PostService } from "./post.service";
 import type { Request } from "express";
@@ -21,8 +22,14 @@ export class PostController {
   constructor(private readonly postService: PostService) {}
 
   @Get("fetch/all")
-  async getAllPostCntr(@Req() req: Request) {
-    return await this.postService.getAllPost(req.user?.user_id as string);
+  async getAllPostCntr(
+    @Req() req: Request,
+    @Query("search") searchText: string
+  ) {
+    return await this.postService.getAllPost(
+      req.user?.user_id as string,
+      searchText
+    );
   }
 
   @Get("fetch/:id")

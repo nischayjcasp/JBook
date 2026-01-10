@@ -40,15 +40,15 @@ export class AuthController {
     );
 
     if (loginResp.status === 200) {
-      if (!loginResp.otp_id) {
-        res.cookie("MERGER_SESSION", loginResp.session_id, {
-          httpOnly: true,
-          secure: process.env.APP_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-          expires: loginResp.session_exp,
-        });
+      res.cookie("MERGER_SESSION", loginResp.session_id, {
+        httpOnly: true,
+        secure: process.env.APP_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        expires: loginResp.session_exp,
+      });
 
+      if (!loginResp.otp_id) {
         res.cookie("MERGER_ACCESS_TOKEN", loginResp.access_token, {
           httpOnly: true,
           secure: process.env.APP_ENV === "production",
@@ -69,19 +69,31 @@ export class AuthController {
       }
 
       if (loginResp.otp_id) {
-        return res.json({
+        // return res.json({
+        //   status: 200,
+        //   message: loginResp.otp_message,
+        //   otp_id: loginResp.otp_id,
+        // });
+
+        return {
           status: 200,
           message: loginResp.otp_message,
           otp_id: loginResp.otp_id,
-          session_id: loginResp.session_id,
-        });
+        };
       } else {
-        return res.json({
+        // return res.json({
+        //   status: 200,
+        //   message: "you have logged in successfully.",
+        //   access_token: loginResp.access_token,
+        //   user_id: loginResp.user_id,
+        // });
+
+        return {
           status: 200,
           message: "you have logged in successfully.",
           access_token: loginResp.access_token,
           user_id: loginResp.user_id,
-        });
+        };
       }
     } else {
       return loginResp;
@@ -284,65 +296,68 @@ export class AuthController {
     }
   }
 
-  @Post("auth/login/otp")
+  @Post("/login/otp")
   async loginWithOtpCntr(
     @Body() loginWithOtpDto: LoginWithOtpDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response
   ) {
+    const userAgent = req.headers["user-agent"];
     const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+    const session_id: string = req.cookies["MERGER_SESSION"];
 
-    const loginResp = await this.authService.loginWithOtp(
+    const otpLoginResp = await this.authService.loginWithOtp(
       loginWithOtpDto,
-      device_id
+      userAgent,
+      device_id,
+      session_id
     );
 
-    if (loginResp.status === 200) {
-      if (!loginResp.otp_id) {
-        res.cookie("MERGER_SESSION", loginResp.session_id, {
-          httpOnly: true,
-          secure: process.env.APP_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-          expires: loginResp.session_exp,
-        });
+    if (otpLoginResp.status === 200) {
+      res.cookie("MERGER_ACCESS_TOKEN", otpLoginResp.access_token, {
+        httpOnly: true,
+        secure: process.env.APP_ENV === "production",
+        sameSite: "strict",
+        path: "/",
+        expires: otpLoginResp.access_token_exp,
+      });
 
-        res.cookie("MERGER_ACCESS_TOKEN", loginResp.access_token, {
-          httpOnly: true,
-          secure: process.env.APP_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-          expires: loginResp.access_token_exp,
-        });
-      }
-
-      if (loginResp.device_id) {
-        res.cookie("MERGER_DEVICE_ID", loginResp.device_id, {
-          httpOnly: true,
-          secure: process.env.APP_ENV === "production",
-          sameSite: "strict",
-          path: "/",
-          maxAge: 400 * 24 * 60 * 60 * 1000,
-        });
-      }
-
-      if (loginResp.otp_id) {
-        return res.json({
-          status: 200,
-          message: loginResp.otp_message,
-          otp_id: loginResp.otp_id,
-          session_id: loginResp.session_id,
-        });
-      } else {
-        return res.json({
-          status: 200,
-          message: "you have logged in successfully.",
-          access_token: loginResp.access_token,
-          user_id: loginResp.user_id,
-        });
-      }
+      return res.json({
+        status: 200,
+        message: "you have logged in successfully.",
+        access_token: otpLoginResp.access_token,
+        user_id: otpLoginResp.user_id,
+      });
     } else {
-      return loginResp;
+      return otpLoginResp;
+    }
+  }
+
+  @Get("/login/otp/resend")
+  async resendOtpCntr(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    const session_id: string = req.cookies["MERGER_SESSION"];
+    const device_id: string = req.cookies["MERGER_DEVICE_ID"];
+
+    if (!session_id || !device_id) {
+      return {
+        status: 500,
+        message: "Session do not found!",
+      };
+    }
+
+    const otpResp = await this.authService.resendOtp(session_id, device_id);
+
+    if (otpResp.status === 200) {
+      res.json({
+        status: 200,
+        message: otpResp.otp_message,
+        otp_id: otpResp.otp_id,
+      });
+    } else {
+      return otpResp;
     }
   }
 
@@ -657,14 +672,20 @@ export class AuthController {
         `MERGER_ACCESS_TOKEN=${refreshTokenRes.access_token}; Expire=${refreshTokenRes.access_token_exp?.toUTCString()}; httponly=true; ${process.env.APP_ENV === "production" ? "secure=true;" : ""} path=/; samesite=Strict`,
       ]);
 
-      res.json({
+      // res.json({
+      //   status: 200,
+      //   message: "Session renewed successfully.",
+      // });
+
+      return {
         status: 200,
         message: "Session renewed successfully.",
-      });
+      };
     } else {
       res.header("Set-Cookie", [`MERGER_ACCESS_TOKEN='';MERGER_SESSION=''`]);
 
-      res.json(refreshTokenRes);
+      // res.json(refreshTokenRes);
+      return refreshTokenRes;
     }
   }
 

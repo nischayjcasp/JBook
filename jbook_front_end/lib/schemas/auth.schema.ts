@@ -1,11 +1,8 @@
 import * as yup from "yup";
 //Login form schema
 export const loginSchema = yup.object({
-  login_email: yup
-    .string()
-    .email("Invalid email")
-    .required("Email is required"),
-  login_password: yup
+  email: yup.string().email("Invalid email").required("Email is required"),
+  password: yup
     .string()
     .min(6, "Minimum 6 characters")
     .required("Password is required")
@@ -25,13 +22,13 @@ let MaxDob = new Date();
 MaxDob.setFullYear(MaxDob.getFullYear() - 14);
 
 export const signupSchema = yup.object({
-  signup_username: yup
+  display_name: yup
     .string()
     .min(3, "Username must be 3 characters long.")
     .max(20, "Username can not bigger then 20 characters")
     .required("Username is required")
-    .matches(/^[a-zA-Z]+$/, "Username must have alphabates only."),
-  signup_dob: yup
+    .matches(/^[a-zA-Z\s]*$/, "Username must have alphabates only."),
+  dob: yup
     .date()
     .required("Birthdate is required")
     .max(MaxDob, "User must be 14 year old.")
@@ -39,21 +36,18 @@ export const signupSchema = yup.object({
       new Date("1900-01-01"),
       "Birth date cannot be in the before 1900-01-01"
     ),
-  signup_gender: yup
+  gender: yup
     .string()
     .required("Gender is required")
     .oneOf(["male", "female"], "Gender must be either Male or Female"),
 
-  signup_mobile: yup
+  mobile_no: yup
     .string()
     .required("Mobile number is required")
     .matches(/^\d+$/, "Mobile number must have digits only")
     .matches(/^.{10}$/, "Mobile number must have 10 digits exactly."),
-  signup_email: yup
-    .string()
-    .email("Invalid email")
-    .required("Email is required"),
-  signup_password: yup
+  email: yup.string().email("Invalid email").required("Email is required"),
+  password: yup
     .string()
     .min(6, "Minimum 6 characters")
     .required("Password is required")
@@ -64,10 +58,10 @@ export const signupSchema = yup.object({
       /^(?=.*[~`!@#$%^&*()_\-+=\[\]{};:'"\\|,.<>/?]).+$/,
       "Password must have one special character"
     ),
-  signup_cpassword: yup
+  cpassword: yup
     .string()
     .required("Confirm Password is required")
-    .oneOf([yup.ref("signup_password")], "Passwords do not match"),
+    .oneOf([yup.ref("password")], "Passwords do not match"),
 });
 
 export type SignupSchemaType = yup.InferType<typeof signupSchema>;

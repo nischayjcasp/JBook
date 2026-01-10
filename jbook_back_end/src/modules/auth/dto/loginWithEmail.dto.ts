@@ -11,11 +11,11 @@ export class LoginWithEmailDto {
   @IsString()
   @IsNotEmpty()
   @IsEmail()
-  login_email: string;
+  email: string;
 
   @IsString()
   @IsNotEmpty()
-  login_password: string;
+  password: string;
 
   @IsOptional()
   @IsString()

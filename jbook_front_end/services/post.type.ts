@@ -1,5 +1,5 @@
 export interface PostData {
-  created_at: string;
+  created_at: Date;
   id: string;
   post_image: string;
   post_text: string;

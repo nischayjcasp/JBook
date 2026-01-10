@@ -31,6 +31,8 @@ import { ResetPasswordLog } from "./entities/resetPassword.entity";
 import { UsersService } from "../users/users.service";
 import { FailedLoginLog } from "./entities/failedLoginLog.entity";
 import { ConfigService } from "@nestjs/config";
+import { LoginWithOtpDto } from "./dto/loginWithOtp.dto";
+import { OTP } from "./entities/otp.entity";
 
 @Injectable()
 export class AuthService {
@@ -43,6 +45,8 @@ export class AuthService {
     private readonly resetPassRepo: Repository<ResetPasswordLog>,
     @InjectRepository(FailedLoginLog)
     private readonly failedLoginLogRepo: Repository<FailedLoginLog>,
+    @InjectRepository(OTP)
+    private readonly otpRepo: Repository<OTP>,
     private readonly sessionService: SessionService,
     private readonly emailService: EmailService,
     private readonly usersService: UsersService,
@@ -154,7 +158,7 @@ export class AuthService {
       // finduser in DB
       const finduser = await this.usersRepo.findOne({
         where: {
-          email: loginWithEmailDto.login_email,
+          email: loginWithEmailDto.email,
         },
       });
 
@@ -190,7 +194,7 @@ export class AuthService {
 
       //Check credentials
       const isMatching = await bcrypt.compare(
-        loginWithEmailDto.login_password,
+        loginWithEmailDto.password,
         finduser.password
       );
 
@@ -281,7 +285,7 @@ export class AuthService {
         googleTokenRes = await axios.post<Partial<GoogleTokenResType>>(
           "https://oauth2.googleapis.com/token",
           {
-            code: "4/0ATX87lPJHTrFrcez5u7IqyczCEAv3nAUCRoGvqEFzaVYGKL5O0c1TfyjhcQacy4OQcWVPQ",
+            code: authCode,
             client_id: process.env.GOOGLE_CLIENT_ID,
             client_secret: process.env.GOOGLE_CLIENT_SECRET,
             redirect_uri: "postmessage",
@@ -555,7 +559,110 @@ export class AuthService {
     }
   }
 
-  async loginWithOtp() {}
+  async loginWithOtp(
+    loginWithOtpDto: LoginWithOtpDto,
+    userAgent: string | undefined,
+    device_id: string,
+    session_id: string
+  ) {
+    try {
+      // verify otp
+      const findOtp = await this.otpRepo.findOne({
+        where: {
+          id: loginWithOtpDto.otp_id,
+        },
+      });
+
+      if (!findOtp) {
+        return {
+          status: 400,
+          message: "OTP id do not found",
+        };
+      }
+
+      console.log("findOtp: ", findOtp);
+
+      const isOtpValid =
+        findOtp.otp === loginWithOtpDto.otp &&
+        findOtp.expires_at > new Date(Date.now()) &&
+        !findOtp.is_otp_used;
+
+      console.log(
+        findOtp.otp === loginWithOtpDto.otp,
+        findOtp.expires_at > new Date(Date.now()),
+        !findOtp.is_otp_used
+      );
+
+      console.log(findOtp.otp, loginWithOtpDto.otp);
+      console.log(findOtp.expires_at, new Date(Date.now()));
+      console.log(findOtp.is_otp_used);
+
+      if (isOtpValid) {
+        const findSession = await this.sessionRepo.findOne({
+          where: { id: session_id },
+        });
+
+        if (!findSession) {
+          return {
+            status: 500,
+            message: "Session do not found!",
+          };
+        }
+
+        //Check if it is the same device from which otp is reuqested
+        if (findSession.device_id !== device_id) {
+          return {
+            status: 401,
+            message: "Device is different then from which otp was requested!",
+          };
+        }
+
+        // Update session
+        findSession.status = SessionStatus.ACTIVE;
+
+        const updateSession = await this.sessionRepo.save(findSession);
+
+        //Update otp log
+        findOtp.is_otp_used = true;
+
+        await this.otpRepo.save(findOtp);
+
+        // Generating access token
+        const access_token = await this.sessionService.genearateAccessToken(
+          updateSession.id
+        );
+
+        console.log("access_token: ", access_token);
+
+        const access_token_decoded =
+          await this.sessionService.verifyAccessToken(access_token);
+
+        console.log("access_token_decoded: ", access_token_decoded);
+
+        if (!access_token_decoded) {
+          throw new InternalServerErrorException(
+            "access token expired already!!"
+          );
+        }
+
+        return {
+          status: 200,
+          user_id: findSession.user_id,
+          access_token,
+          access_token_exp: new Date(access_token_decoded.exp * 1000),
+        };
+      } else {
+        return {
+          status: 400,
+          message: "Invalid OTP!",
+        };
+      }
+    } catch (error) {
+      console.log("error: ", error);
+
+      throw new InternalServerErrorException(error.message);
+    }
+  }
 
   //<============== Logout ==============>
 
@@ -574,12 +681,12 @@ export class AuthService {
   ): Promise<SignUpResType> {
     try {
       const createUserRes = await this.usersService.createUser({
-        signup_display_name: signUpWithEmailDto.signup_username,
-        signup_dob: signUpWithEmailDto.signup_dob,
-        signup_gender: signUpWithEmailDto.signup_gender,
-        signup_mobile: signUpWithEmailDto.signup_mobile,
-        signup_email: signUpWithEmailDto.signup_email,
-        signup_password: signUpWithEmailDto.signup_password,
+        display_name: signUpWithEmailDto.display_name,
+        dob: signUpWithEmailDto.dob,
+        gender: signUpWithEmailDto.gender,
+        mobile_no: signUpWithEmailDto.mobile_no,
+        email: signUpWithEmailDto.email,
+        password: signUpWithEmailDto.password,
       });
 
       console.log("createUserRes: ", createUserRes);
@@ -688,8 +795,8 @@ export class AuthService {
 
         const createUserRes = await this.usersService.createUser(
           {
-            signup_display_name: googleUserInfo.data.name as string,
-            signup_email: googleUserInfo.data.email as string,
+            display_name: googleUserInfo.data.name as string,
+            email: googleUserInfo.data.email as string,
             profile_photo: googleUserInfo.data.picture ?? null,
           },
           googleTokenRes.data.access_token
@@ -778,8 +885,8 @@ export class AuthService {
       if (faceebookUserInfo.data) {
         const createUserRes = await this.usersService.createUser(
           {
-            signup_display_name: faceebookUserInfo.data.name as string,
-            signup_email: faceebookUserInfo.data.email as string,
+            display_name: faceebookUserInfo.data.name as string,
+            email: faceebookUserInfo.data.email as string,
             profile_photo: faceebookUserInfo.data.picture.data.url ?? null,
           },
           access_token
@@ -885,8 +992,8 @@ export class AuthService {
 
         const createUserRes = await this.usersService.createUser(
           {
-            signup_display_name: linkedInProfileRes.data.name as string,
-            signup_email: linkedInProfileRes.data.email as string,
+            display_name: linkedInProfileRes.data.name as string,
+            email: linkedInProfileRes.data.email as string,
             profile_photo: linkedInProfileRes.data.picture ?? null,
           },
           linkedInAccessTokenRes.data.access_token
@@ -952,6 +1059,13 @@ export class AuthService {
     });
 
     if (!findSession) {
+      return {
+        status: 401,
+        message: "No active session found.",
+      };
+    }
+
+    if (findSession.status !== SessionStatus.ACTIVE) {
       return {
         status: 401,
         message: "No active session found.",
@@ -1089,10 +1203,10 @@ export class AuthService {
 
       //Find user password
       const updateUserRes = await this.usersService.updateUser(findUser.id, {
-        signup_password: resetPasswordDto.new_pass,
+        password: resetPasswordDto.new_pass,
       });
 
-      if (updateUserRes && updateUserRes.status === 200 && updateUserRes.user) {
+      if (updateUserRes && updateUserRes.status === 200) {
         // update reset password log
         findCode.is_token_used = true;
 
@@ -1133,9 +1247,15 @@ export class AuthService {
 
       console.log("deviceInfo: ", deviceInfo);
 
+      console.log("emailVerifyPayload.userId: ", emailVerifyPayload.userId);
+      console.log(
+        "emailVerifyPayload.device_id: ",
+        emailVerifyPayload.device_id
+      );
+
       const findSessions = await this.sessionRepo.find({
         where: {
-          id: emailVerifyPayload.userId,
+          user_id: emailVerifyPayload.userId,
           device_id: emailVerifyPayload.device_id,
         },
       });
@@ -1155,12 +1275,6 @@ export class AuthService {
       if (isNewDevice) {
         const otpMailRes = await this.emailService.sentOtp({
           email: findUser?.email as string,
-          device_id: emailVerifyPayload.device_id,
-          device_type: deviceInfo.device.type ?? null,
-          device_os: deviceInfo.os.name ?? null,
-          device_ip: emailVerifyPayload.device_ip,
-          device_lat: emailVerifyPayload.device_lat,
-          device_long: emailVerifyPayload.device_long,
         });
 
         console.log(
@@ -1187,6 +1301,65 @@ export class AuthService {
       throw new InternalServerErrorException(
         "Error occued while checking device verification"
       );
+    }
+  }
+
+  async resendOtp(
+    session_id: string,
+    device_id: string
+  ): Promise<SignUpResType> {
+    // check session status
+    const findSessions = await this.sessionRepo.findOne({
+      where: {
+        id: session_id,
+      },
+    });
+
+    if (!findSessions) {
+      return {
+        status: 400,
+        message: "Session do not founds!",
+      };
+    }
+
+    // finduser in DB
+    const finduser = await this.usersRepo.findOne({
+      where: {
+        id: findSessions.user_id,
+      },
+    });
+
+    if (!finduser) {
+      return {
+        status: 401,
+        message: "Invalid session!",
+      };
+    }
+
+    if (findSessions.status === SessionStatus.BLOCKED) {
+      const otpMailRes = await this.emailService.sentOtp({
+        email: finduser.email,
+      });
+
+      console.log("otp: ", otpMailRes);
+
+      if (otpMailRes.status === 200) {
+        return {
+          status: 200,
+          otp_id: otpMailRes.otp_id as string,
+          otp_message: `Otp sent to ${finduser.email}`,
+        };
+      } else {
+        return {
+          status: 500,
+          message: "Error occured while sending OTP!",
+        };
+      }
+    } else {
+      return {
+        status: 500,
+        message: "Invalid Otp request!",
+      };
     }
   }
 }

@@ -10,7 +10,7 @@ export const userPhotoSupportedFormats = [
 ];
 
 export const userProfileSchema = yup.object({
-  user_photo: yup
+  profile_photo: yup
     .mixed()
     .optional()
     .test(
@@ -31,13 +31,13 @@ export const userProfileSchema = yup.object({
         } else return true;
       }
     ),
-  user_username: yup.string().required("Username is required"),
-  user_display_name: yup
+  username: yup.string().required("Username is required"),
+  display_name: yup
     .string()
     .min(3, "Display name must be 3 characters long!")
     .max(20, "Display name must be 20 characters long!")
     .required("User display name is required!"),
-  user_dob: yup
+  dob: yup
     .date()
     .required("Birthdate is required")
     .max(
@@ -48,15 +48,15 @@ export const userProfileSchema = yup.object({
       new Date("1900-01-01"),
       "Birth date cannot be in the before 1900-01-01"
     ),
-  user_gender: yup
+  gender: yup
     .string()
     .required("Gender is required")
     .oneOf(["male", "female"], "Gender must be either Male or Female"),
-  user_email: yup
+  email: yup
     .string()
     .email("Invalid email")
     .required("Username email is required"),
-  user_password: yup.string().required(),
+  password: yup.string().required(),
 });
 
 export type UserProfileSchemaType = yup.InferType<typeof userProfileSchema>;
@@ -65,7 +65,7 @@ export type UserProfileSchemaType = yup.InferType<typeof userProfileSchema>;
 
 export const passChangeSchema = yup.object({
   currrent_password: yup.string().required("Current password is required!"),
-  new_password: yup
+  password: yup
     .string()
     .min(6, "Minimum 6 characters")
     .required("Password is required")
@@ -76,10 +76,10 @@ export const passChangeSchema = yup.object({
       /^(?=.*[~`!@#$%^&*()_\-+=\[\]{};:'"\\|,.<>/?]).+$/,
       "Password must have one special character"
     ),
-  cnew_password: yup
+  cpassword: yup
     .string()
     .required("Confirm password is required!")
-    .oneOf([yup.ref("new_password")], "Password do not match"),
+    .oneOf([yup.ref("password")], "Password do not match"),
 });
 
 export type PassChangeSchemaType = yup.InferType<typeof passChangeSchema>;
@@ -87,16 +87,16 @@ export type PassChangeSchemaType = yup.InferType<typeof passChangeSchema>;
 // Delete account schema
 
 export const deleteAccSchema = yup.object({
-  reason_fot_delete: yup
+  reason_for_delete: yup
     .string()
     .max(200, "Message max length is 200 characters.")
     .optional(),
-  del_acc_email: yup
+  email: yup
     .string()
     .email("Invalid email")
     .required("Username email is required"),
-  del_acc_password: yup.string().required("Password is required!"),
-  acc_delete_user_consent: yup.boolean().required("User consent is required!"),
+  password: yup.string().required("Password is required!"),
+  user_consent: yup.boolean().oneOf([true], "User consent is required!"),
 });
 
 export type DeleteAccSchemaType = yup.InferType<typeof deleteAccSchema>;

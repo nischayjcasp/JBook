@@ -27,8 +27,8 @@ export class SignUpWithEmailDto {
   @IsNotEmpty()
   @MinLength(3, { message: "Username must be 3 character long." })
   @MaxLength(20, { message: "Username can not bigger then 20 characters." })
-  @Matches(/^[a-z]+$/, { message: "Username must have alphabates only." })
-  signup_username: string;
+  @Matches(/^[a-zA-Z\s]*$/, { message: "Username must have alphabates only." })
+  display_name: string;
 
   @Type(() => Date)
   @IsDate()
@@ -36,22 +36,22 @@ export class SignUpWithEmailDto {
   @MinDate(() => new Date("1900-01-01"), {
     message: "Birth date cannot be in the before 1900-01-01",
   })
-  signup_dob: Date;
+  dob: Date;
 
   @IsEnum(Gender, { message: "Gender must be either male or female" })
   @IsNotEmpty()
-  signup_gender: Gender;
+  gender: Gender;
 
   @IsString()
   @IsNotEmpty()
   @Matches(/^\d+$/, { message: "Mobile number must have digits only" })
   @Matches(/^.{10}$/, { message: "Mobile number must have 10 digits exactly." })
-  signup_mobile: string;
+  mobile_no: string;
 
   @IsString()
   @IsNotEmpty()
   @IsEmail()
-  signup_email: string;
+  email: string;
 
   @IsString()
   @IsNotEmpty()
@@ -64,7 +64,7 @@ export class SignUpWithEmailDto {
   @Matches(/.{8,}/, {
     message: "Password must have at least 8 characters",
   })
-  signup_password: string;
+  password: string;
 
   @IsOptional()
   @IsString()

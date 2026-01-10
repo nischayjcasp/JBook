@@ -141,13 +141,13 @@ const SignUp = () => {
   } = useForm<SignupSchemaType>({
     resolver: yupResolver(signupSchema),
     defaultValues: {
-      signup_username: `ram`,
-      signup_dob: new Date("2011-05-25"),
-      signup_gender: "male",
-      signup_mobile: "8141409448",
-      signup_email: `ram${randomNum}@gmail.com`,
-      signup_password: `Ram@@${randomNum}`,
-      signup_cpassword: `Ram@@${randomNum}`,
+      display_name: `ram`,
+      dob: new Date("2011-05-25"),
+      gender: "male",
+      mobile_no: "8141409448",
+      email: `ram${randomNum}@gmail.com`,
+      password: `Ram@@${randomNum}`,
+      cpassword: `Ram@@${randomNum}`,
     },
   });
 
@@ -163,12 +163,12 @@ const SignUp = () => {
 
     try {
       const payload: EmailSignupPayloadType = {
-        signup_username: data.signup_username,
-        signup_dob: data.signup_dob,
-        signup_gender: data.signup_gender,
-        signup_mobile: data.signup_mobile,
-        signup_email: data.signup_email,
-        signup_password: data.signup_password,
+        display_name: data.display_name,
+        dob: data.dob,
+        gender: data.gender,
+        mobile_no: data.mobile_no,
+        email: data.email,
+        password: data.password,
         user_agent: navigator.userAgent,
         device_ip: deviceIpRes.data?.ip ?? null,
         device_lat: deviceIp.lat,
@@ -558,7 +558,7 @@ const SignUp = () => {
           {/* Username */}
           <div className="mb-2.5">
             <Controller
-              name="signup_username"
+              name="display_name"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
@@ -569,10 +569,10 @@ const SignUp = () => {
                   onChange={onChange}
                   variant="outlined"
                   className="w-full"
-                  error={signupErrors.signup_username?.message ? true : false}
+                  error={signupErrors.display_name?.message ? true : false}
                   helperText={
-                    signupErrors.signup_username?.message
-                      ? `${signupErrors.signup_username.message}`
+                    signupErrors.display_name?.message
+                      ? `${signupErrors.display_name.message}`
                       : " "
                   }
                 />
@@ -583,7 +583,7 @@ const SignUp = () => {
           {/* Birthdate */}
           <div className="mb-2.5">
             <Controller
-              name="signup_dob"
+              name="dob"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -596,9 +596,9 @@ const SignUp = () => {
                     slotProps={{
                       textField: {
                         fullWidth: true,
-                        error: signupErrors.signup_dob?.message ? true : false,
-                        helperText: signupErrors.signup_dob?.message
-                          ? `${signupErrors.signup_dob.message}`
+                        error: signupErrors.dob?.message ? true : false,
+                        helperText: signupErrors.dob?.message
+                          ? `${signupErrors.dob.message}`
                           : " ",
                       },
                     }}
@@ -611,7 +611,7 @@ const SignUp = () => {
           {/* Gender */}
           <div className="mb-2.5">
             <Controller
-              name="signup_gender"
+              name="gender"
               control={signupControl}
               render={({ field: { name, value, onChange } }) => (
                 <div>
@@ -636,8 +636,8 @@ const SignUp = () => {
                     </RadioGroup>
                   </div>
                   <p className="text-xs px-3.5 text-[#D32F2F]">
-                    {signupErrors.signup_gender?.message ? (
-                      `${signupErrors.signup_gender.message}`
+                    {signupErrors.gender?.message ? (
+                      `${signupErrors.gender.message}`
                     ) : (
                       <>&nbsp;</>
                     )}
@@ -650,7 +650,7 @@ const SignUp = () => {
           {/* Mobile number */}
           <div className="mb-2.5">
             <Controller
-              name="signup_mobile"
+              name="mobile_no"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
@@ -661,10 +661,10 @@ const SignUp = () => {
                   onChange={onChange}
                   variant="outlined"
                   className="w-full"
-                  error={signupErrors.signup_mobile?.message ? true : false}
+                  error={signupErrors.mobile_no?.message ? true : false}
                   helperText={
-                    signupErrors.signup_mobile?.message
-                      ? `${signupErrors.signup_mobile.message}`
+                    signupErrors.mobile_no?.message
+                      ? `${signupErrors.mobile_no.message}`
                       : " "
                   }
                 />
@@ -675,7 +675,7 @@ const SignUp = () => {
           {/* Email */}
           <div className="mb-2.5">
             <Controller
-              name="signup_email"
+              name="email"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
@@ -686,10 +686,10 @@ const SignUp = () => {
                   onChange={onChange}
                   variant="outlined"
                   className="w-full"
-                  error={signupErrors.signup_email?.message ? true : false}
+                  error={signupErrors.email?.message ? true : false}
                   helperText={
-                    signupErrors.signup_email?.message
-                      ? `${signupErrors.signup_email.message}`
+                    signupErrors.email?.message
+                      ? `${signupErrors.email.message}`
                       : " "
                   }
                 />
@@ -700,12 +700,13 @@ const SignUp = () => {
           {/* Sign up Password */}
           <div className="mb-2.5">
             <Controller
-              name="signup_password"
+              name="password"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
                   type={signUpPassEye ? "text" : "password"}
                   label="Password"
+                  autoComplete="new-password"
                   placeholder="Enter password "
                   name={name}
                   value={value}
@@ -727,10 +728,10 @@ const SignUp = () => {
                       ),
                     },
                   }}
-                  error={signupErrors.signup_password?.message ? true : false}
+                  error={signupErrors.password?.message ? true : false}
                   helperText={
-                    signupErrors.signup_password?.message
-                      ? `${signupErrors.signup_password.message}`
+                    signupErrors.password?.message
+                      ? `${signupErrors.password.message}`
                       : " "
                   }
                 />
@@ -741,12 +742,13 @@ const SignUp = () => {
           {/* Sign up Confirm Password */}
           <div className="mb-2.5">
             <Controller
-              name="signup_cpassword"
+              name="cpassword"
               control={signupControl}
               render={({ field: { value, onChange, name } }) => (
                 <TextField
                   type={signUpCPassEye ? "text" : "password"}
                   label="Confirm Password"
+                  autoComplete="new-password"
                   placeholder="Enter confirm password"
                   name={name}
                   value={value}
@@ -772,10 +774,10 @@ const SignUp = () => {
                       ),
                     },
                   }}
-                  error={signupErrors.signup_cpassword?.message ? true : false}
+                  error={signupErrors.cpassword?.message ? true : false}
                   helperText={
-                    signupErrors.signup_cpassword?.message
-                      ? `${signupErrors.signup_cpassword.message}`
+                    signupErrors.cpassword?.message
+                      ? `${signupErrors.cpassword.message}`
                       : " "
                   }
                 />

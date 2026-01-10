@@ -51,10 +51,6 @@ export class Users {
 
   @Column({
     type: "date",
-    transformer: {
-      from: (value: string) => new Date(value),
-      to: (value: Date) => (value ? value.toISOString().split("T") : null),
-    },
     nullable: true,
   })
   dob: Date | null;

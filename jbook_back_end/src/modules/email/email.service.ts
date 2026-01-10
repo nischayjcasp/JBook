@@ -237,6 +237,7 @@ export class EmailService {
           },
         });
 
+        //Create otp log
         const otpLog = this.otpRepo.create();
 
         otpLog.user_id = findUser?.id as string;
@@ -244,12 +245,6 @@ export class EmailService {
         otpLog.otp = otp.join("");
         otpLog.is_otp_used = false;
         otpLog.expires_at = new Date(Date.now() + 60 * 1000);
-        otpLog.device_id = otpEmailDto.device_id;
-        otpLog.device_ip = otpEmailDto.device_ip;
-        otpLog.device_lat = otpEmailDto.device_lat;
-        otpLog.device_long = otpEmailDto.device_long;
-        otpLog.device_os = otpEmailDto.device_os;
-        otpLog.device_type = otpEmailDto.device_type;
 
         const otpLogRes = await this.otpRepo.save(otpLog);
 

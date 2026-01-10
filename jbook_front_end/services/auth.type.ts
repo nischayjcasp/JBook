@@ -1,6 +1,6 @@
 export interface EmailLoginPayloadType {
-  login_email: string;
-  login_password: string;
+  email: string;
+  password: string;
   user_agent: string;
   device_ip: string | null;
   device_lat: number | null;
@@ -24,12 +24,12 @@ export interface LoginApiRes {
 }
 
 export interface EmailSignupPayloadType {
-  signup_username: string;
-  signup_dob: Date;
-  signup_gender: string;
-  signup_mobile: string;
-  signup_email: string;
-  signup_password: string;
+  display_name: string;
+  dob: Date;
+  gender: string;
+  mobile_no: string;
+  email: string;
+  password: string;
   user_agent: string;
   device_ip: string | null;
   device_lat: number | null;
@@ -66,6 +66,4 @@ export interface ResetPasswordPayload {
   device_ip: string | null;
   device_lat: number | null;
   device_long: number | null;
-}
-{
 }

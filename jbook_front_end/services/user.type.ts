@@ -7,6 +7,7 @@ export interface userData {
   mobile_no: string;
   profile_photo: string;
   username: string;
+  password: string | undefined;
 }
 
 export interface FoundAccsType {
@@ -19,4 +20,12 @@ export interface FetchAccListRes {
   status: number;
   message: string;
   users: FoundAccsType[];
+}
+
+export interface DeleteUserPayload {
+  user_id: string;
+  reason_for_delete?: string;
+  email: string;
+  password: string;
+  user_consent: boolean;
 }

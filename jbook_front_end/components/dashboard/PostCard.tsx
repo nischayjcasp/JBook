@@ -6,18 +6,19 @@ import React, { useState } from "react";
 import { FaEdit, FaTrash } from "react-icons/fa";
 import Link from "next/link";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
 import { PostData } from "@/services/post.type";
 import { CircularProgress } from "@mui/material";
 import { deletePostByIdAPI } from "@/services/post.service";
+import { setEditPostDialog } from "@/redux/slices/dialogSlice";
 
 interface PostCardProps {
-  openEditDialog?: (post_id: string) => void;
   data: PostData;
 }
 
-const PostCard = ({ openEditDialog, data }: PostCardProps) => {
+const PostCard = ({ data }: PostCardProps) => {
+  const dispatch = useDispatch();
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
   );
@@ -36,7 +37,7 @@ const PostCard = ({ openEditDialog, data }: PostCardProps) => {
       console.log("deletePostRes: ", deletePostRes);
 
       if (deletePostRes.status === 200) {
-        // toast.success(deletePostRes.message);
+        toast.success(deletePostRes.message);
         window.location.reload();
       } else {
         toast.error(deletePostRes.message);
@@ -90,7 +91,12 @@ const PostCard = ({ openEditDialog, data }: PostCardProps) => {
               className="p-2 cursor-pointer disabled:cursor-not-allowed text-primary disabled:text-slate-300 rounded-sm flex items-center gap-1"
               onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
                 event.preventDefault();
-                if (openEditDialog) openEditDialog(data.id);
+                dispatch(
+                  setEditPostDialog({
+                    status: true,
+                    post_id: data.id,
+                  })
+                );
               }}
             >
               <FaEdit className="text-lg" />
@@ -112,7 +118,7 @@ const PostCard = ({ openEditDialog, data }: PostCardProps) => {
         </div>
 
         {/* Post Text */}
-        <p className="text-left min-h-12">
+        <p className="text-left min-h-18">
           {data.post_text.slice(0, 100)}
           <span>...</span>
           <span className="mx-1 text-blue-600">more</span>

@@ -16,6 +16,7 @@ import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import type { Request } from "express";
 import { FileInterceptor } from "@nestjs/platform-express";
+import { DeleteUserDto } from "./dto/deleteUser.dto";
 
 @Controller("user")
 export class UsersController {
@@ -52,19 +53,37 @@ export class UsersController {
   }
 
   @Post("update/:id")
-  @UseInterceptors(FileInterceptor("user_photo"))
+  @UseInterceptors(FileInterceptor("profile_photo"))
   async updateUserCntr(
     @UploadedFile() user_photo: Express.Multer.File,
     @Body() updateUserDto: UpdateUserDto,
-    @Param("id") id: string
+    @Param("id") id: string,
+    @Req() req: Request
   ) {
     console.log("user_photo: ", user_photo);
+    const session_id: string = req.cookies["MERGER_SESSION"];
 
-    return this.usersService.updateUser(id, updateUserDto, user_photo);
+    if (!session_id) {
+      return {
+        status: 401,
+        message: "No active session",
+      };
+    }
+
+    return this.usersService.updateUser(
+      id,
+      updateUserDto,
+      session_id,
+      user_photo
+    );
   }
 
-  @Delete("delete/:id")
-  async deleteUserCntr(@Param("id") user_id: string) {
+  @Post("delete/:id")
+  async deleteUserCntr(
+    @Param("id") user_id: string,
+    @Body() deleteAccDto: DeleteUserDto,
+    @Req() req: Request
+  ) {
     if (!user_id) {
       return {
         status: 400,
@@ -72,6 +91,8 @@ export class UsersController {
       };
     }
 
-    return this.usersService.deleteUser(user_id);
+    const session_id = req.cookies["MERGER_SESSION"];
+
+    return this.usersService.deleteUser(deleteAccDto, user_id, session_id);
   }
 }

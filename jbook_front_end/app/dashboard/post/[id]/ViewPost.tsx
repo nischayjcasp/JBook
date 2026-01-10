@@ -1,307 +1,155 @@
 "use client";
 
-import { CircularProgress, Dialog, Pagination, TextField } from "@mui/material";
-import { Controller, useForm } from "react-hook-form";
-import {
-  DateTimePicker,
-  LocalizationProvider,
-  renderTimeViewClock,
-} from "@mui/x-date-pickers";
-import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
-import dayjs from "dayjs";
-import { IoMdClose } from "react-icons/io";
-import defaultImage from "@/app/assets/images/sampleImage.webp";
 import Image from "next/image";
 import React, { useEffect, useRef, useState } from "react";
-import { VisuallyHiddenInput } from "@/app/dashboard/layout";
-import {
-  addPostSchema,
-  userPhotoSupportedFormats,
-} from "@/lib/schemas/settings.schema";
-import { yupResolver } from "@hookform/resolvers/yup";
 import { toast } from "react-toastify";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/redux/store";
+import { deletePostByIdAPI, fetchPostByIdAPI } from "@/services/post.service";
+import { PostData } from "@/services/post.type";
+import { CircularProgress } from "@mui/material";
+import { FaArrowLeft } from "react-icons/fa";
+import { useRouter } from "next/navigation";
+import { setEditPostDialog } from "@/redux/slices/dialogSlice";
 
-interface ViewPostProps {
-  postId: string;
-  userName: string;
-  postDate: string;
-  postText: string;
-  postImage: string;
-}
-
-const ViewPost = ({ data }: { data: ViewPostProps }) => {
-  const { postId, userName, postDate, postText, postImage } = data;
+const ViewPost = ({ id }: { id: string }) => {
+  const router = useRouter();
+  const dispatch = useDispatch();
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
   );
 
-  const [isLoading, setLoading] = useState<boolean>(false);
-  const pageRef = useRef<HTMLDivElement | null>(null);
-  const [editDialog, setEditDialog] = useState<boolean>(false);
-  const [PostPhoto, setPostPhoto] = useState<string | null>(null);
-
-  //Edit post form
-  const {
-    control: editPostControl,
-    handleSubmit: editPostSubmit,
-    watch: postWatch,
-    reset: editPostReset,
-    formState: { errors: editPostErrors },
-  } = useForm({
-    resolver: yupResolver(addPostSchema),
-    defaultValues: {
-      post_title: "Post title",
-      post_text: "SitaRAM",
-    },
-  });
-
-  const postPhoto: any = postWatch("post_photo");
-
-  useEffect(() => {
-    if (postPhoto && userPhotoSupportedFormats.includes(postPhoto.type)) {
-      const photoUrl = URL.createObjectURL(postPhoto);
-      console.log("photoUrl", photoUrl);
-      setPostPhoto(photoUrl);
-    } else setPostPhoto(null);
-  }, [postPhoto]);
+  const [isLoading, setLoading] = useState<boolean>(true);
+  const [postData, setPostData] = useState<PostData>();
 
   const openEditDialog = () => {
-    setEditDialog(true);
+    dispatch(setEditPostDialog({ status: true, post_id: id }));
   };
 
   const closeEditDialog = () => {
-    if (!isLoading) {
-      setEditDialog(false);
-      editPostReset();
+    dispatch(setEditPostDialog({ status: false, post_id: "" }));
+  };
+
+  const fetchPostData = async () => {
+    try {
+      setLoading(true);
+      const postRes = await fetchPostByIdAPI(id);
+
+      console.log("postRes: ", postRes);
+
+      if (postRes.status === 200) {
+        setPostData(postRes.post);
+      } else {
+        throw new Error(postRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      throw new Error(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const onEditPost = async (data: any) => {
-    console.log(data);
-    setLoading(true);
-    await new Promise((resolve) => {
-      setTimeout(() => {
-        setLoading(false);
-        toast.success("Post saved successfully.");
-        closeEditDialog();
-        resolve("done");
-      }, 5000);
-    });
+  const handelPostDelete = async () => {
+    try {
+      setLoading(true);
+
+      const deletePostRes = await deletePostByIdAPI(id);
+
+      console.log("deletePostRes: ", deletePostRes);
+
+      if (deletePostRes.status === 200) {
+        toast.success(deletePostRes.message);
+        router.replace("/dashboard");
+      } else {
+        toast.error(deletePostRes.message);
+      }
+    } catch (error: unknown) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  useEffect(() => {
+    fetchPostData();
+  }, []);
+
   return (
-    <>
-      <div className="px-24 py-7 max-h-screen overflow-y-auto">
-        <p className="text-2xl font-semibold mb-5">Post: {postId}</p>
-
-        {/* Posted by */}
-        <div className="mb-4">
-          <p className="font-semibold text-lg text-left">{userName}</p>
-          <p className="text-sm text-left text-black/60">
-            {new Date(postDate).toLocaleString()}
-          </p>
-        </div>
-
-        {/* Post Text */}
-        <p className="text-left mb-7">{postText}</p>
-
-        <Image
-          src={postImage}
-          alt="User post image"
-          width={500}
-          height={500}
-          className="flex-1 mx-auto w-[500px] h-[400px] mb-10"
-        />
-
-        <div className="flex justify-center items-center gap-4">
-          <button
-            type="button"
-            disabled={isMerging}
-            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-primary/90 hover:bg-primary text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
-            onClick={() => {
-              openEditDialog();
+    <div className="relative px-24 py-7 min-h-screen overflow-y-auto">
+      {/* Loader */}
+      {isLoading && (
+        <div className="absolute inset-0 h-full w-full z-1500 bg-white flex items-center justify-center">
+          <CircularProgress
+            size="34px"
+            sx={{
+              "&.MuiCircularProgress-root": {
+                color: "#e1533c",
+              },
             }}
-          >
-            Edit
-          </button>
-
-          <button
-            disabled={isMerging}
-            type="button"
-            className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-red-500 hover:bg-red-600 text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
-            onClick={(event: React.MouseEvent<HTMLButtonElement>) => {
-              event.preventDefault();
-              toast.success("Post deleted successfully.");
-            }}
-          >
-            Delete
-          </button>
+          />
         </div>
-      </div>
+      )}
 
-      {/* Edit Post Dialog */}
-      <Dialog
-        fullWidth={true}
-        maxWidth={"sm"}
-        open={editDialog}
-        onClose={closeEditDialog}
-        sx={{
-          "& .MuiDialog-paper": {
-            borderRadius: "10px",
-            overflow: "hidden",
-          },
-        }}
-      >
-        <div
-          className={`relative max-h-[calc(100vh-64px)] ${
-            isLoading ? "overflow-hidden" : "overflow-y-auto"
-          } hideScrollBar`}
-        >
-          {/* Loader */}
-          {isLoading && (
-            <div className="sticky inset-0 min-h-[calc(100vh-64px)] h-full w-full z-1500 bg-black/40 flex items-center justify-center">
-              <CircularProgress
-                size="34px"
-                sx={{
-                  "&.MuiCircularProgress-root": {
-                    color: "#e1533c",
-                  },
-                }}
-              />
-            </div>
-          )}
-
-          {/* Headers */}
-          <div className="z-10 sticky top-0 p-4 font-semibold bg-white border-b border-slate-200 flex justify-between">
-            <p>Edit Post</p>
+      {postData ? (
+        <>
+          <div className="mb-4">
+            {/* Back arrow */}
             <button
               type="button"
-              onClick={closeEditDialog}
-              className="cursor-pointer"
+              className="text-black text-[22px] p-1 absolute top-4 left-4"
+              onClick={() => router.push("/dashboard")}
             >
-              <IoMdClose className="text-2xl text-red-500" />
+              <FaArrowLeft />
             </button>
+
+            {/* Posted Title */}
+            <p className="font-semibold text-lg text-left">
+              {postData.post_title}
+            </p>
+            <p className="text-sm text-left text-black/60">
+              {new Date(postData.created_at).toLocaleString()}
+            </p>
           </div>
 
-          {/* Edit Post Form */}
-          <form className="w-full p-4" onSubmit={editPostSubmit(onEditPost)}>
-            {/* Post date */}
-            <div className="mb-2">
-              <Controller
-                name="post_title"
-                control={editPostControl}
-                render={({ field: { value, onChange, name } }) => (
-                  <TextField
-                    label="Post title"
-                    placeholder="Enter post title"
-                    name={name}
-                    value={value}
-                    onChange={onChange}
-                    variant="outlined"
-                    className="w-full"
-                    error={editPostErrors.post_title?.message ? true : false}
-                    helperText={
-                      editPostErrors.post_title?.message
-                        ? `${editPostErrors.post_title.message}`
-                        : " "
-                    }
-                  />
-                )}
-              />
-            </div>
+          {/* Post Text */}
+          <p className="text-left mb-7">{postData.post_text}</p>
 
-            {/* Post text */}
-            <div className="mb-2">
-              <Controller
-                name="post_text"
-                control={editPostControl}
-                render={({ field: { value, onChange, name } }) => (
-                  <TextField
-                    multiline
-                    minRows={4}
-                    label="Description"
-                    placeholder="Enter post description... "
-                    name={name}
-                    value={value}
-                    onChange={onChange}
-                    variant="outlined"
-                    className="w-full"
-                    error={editPostErrors.post_text?.message ? true : false}
-                    helperText={
-                      editPostErrors.post_text?.message
-                        ? `${editPostErrors.post_text.message}`
-                        : " "
-                    }
-                  />
-                )}
-              />
-            </div>
+          <Image
+            src={postData.post_image}
+            alt="User post image"
+            width={500}
+            height={500}
+            className="flex-1 mx-auto w-[500px] h-[400px] mb-10"
+          />
 
-            {/* Photo */}
-            <div className="flex flex-col gap-2 mb-7">
-              <div className="flex flex-col">
-                <div className="flex  items-center gap-5 mb-2">
-                  <p className="font-semibold">Photo</p>
-                  <Controller
-                    name="post_photo"
-                    control={editPostControl}
-                    render={({ field: { name, value, onChange } }) => (
-                      <label>
-                        <p className="inline-block px-2.5 py-1.5 text-sm rounded-md bg-primary text-white text-nowrap font-semibold cursor-pointer">
-                          Choose photo
-                        </p>
-                        <VisuallyHiddenInput
-                          type="file"
-                          name={name}
-                          onChange={(event) => {
-                            if (event.target.files)
-                              onChange(event.target.files[0]);
-                          }}
-                        />
-                      </label>
-                    )}
-                  />
-                  <p className="max-w-full overflow-x-hidden text-black/70 text-xs">
-                    {postPhoto && postPhoto?.name}
-                  </p>
-                </div>
+          <div className="flex justify-center items-center gap-4">
+            <button
+              type="button"
+              disabled={isMerging}
+              className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-primary/90 hover:bg-primary text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+              onClick={openEditDialog}
+            >
+              Edit
+            </button>
 
-                <p className="min-h-6 text-red-500 text-xs">
-                  {editPostErrors.post_photo
-                    ? editPostErrors.post_photo?.message
-                    : " "}
-                </p>
-              </div>
-
-              <div className="flex-1 mx-auto border border-slate-300 rounded-lg">
-                <Image
-                  src={
-                    !editPostErrors.post_photo?.message && PostPhoto
-                      ? PostPhoto
-                      : defaultImage
-                  }
-                  alt="Post image"
-                  width={500}
-                  height={300}
-                  className="h-auto max-h-[300px] rounded-lg"
-                />
-              </div>
-            </div>
-
-            <div className="text-center">
-              <button
-                type="submit"
-                className="px-3 py-2 rounded-md bg-primary text-white font-semibold cursor-pointer"
-              >
-                Edit Post
-              </button>
-            </div>
-          </form>
-        </div>
-      </Dialog>
-    </>
+            <button
+              disabled={isMerging}
+              type="button"
+              className="py-2 px-5 cursor-pointer disabled:cursor-not-allowed bg-red-500 hover:bg-red-600 text-white disabled:bg-slate-300 rounded-sm flex items-center gap-1"
+              onClick={handelPostDelete}
+            >
+              Delete
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="text-center text-xl py-7 text-red-500">No post found</p>
+      )}
+    </div>
   );
 };
 
