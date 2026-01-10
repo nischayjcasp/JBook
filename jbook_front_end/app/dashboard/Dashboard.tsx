@@ -22,7 +22,7 @@ const Dashboard = () => {
   const [pagination, setPagination] = useState<number>(1);
   const totalPagination = Math.ceil(posts.length / 9);
   const userData = useSelector((state: RootState) => state.user.userData);
-  const postSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  let postSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchUserPostsData = async () => {
     try {
@@ -110,11 +110,14 @@ const Dashboard = () => {
               className="w-xl px-3 py-1.5 border rounded-sm"
               placeholder="Search here.."
               onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                if (!searchPostInputRef.current) return;
+
                 if (postSearchTimer.current) {
                   clearTimeout(postSearchTimer.current);
                 }
-                postSearchTimer = setTimeout(() => {
-                  handlePostSearch(event.target.value);
+                postSearchTimer.current = setTimeout(() => {
+                  handlePostSearch(searchPostInputRef.current?.value as string);
+                  postSearchTimer.current = null;
                 }, 300);
               }}
             />
