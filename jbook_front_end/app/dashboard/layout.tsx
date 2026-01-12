@@ -72,12 +72,20 @@ import {
 import {
   deleteUserAPI,
   fetchAccListAPI,
+  fetchUserByIdAPI,
   fetchUserData,
   updateUserAPI,
 } from "@/services/user.serivce";
 import { DeleteUserPayload, FoundAccsType } from "@/services/user.type";
 import { DeviceLocation } from "@/util/common.util";
-import { setEditPostDialog } from "@/redux/slices/dialogSlice";
+import {
+  setEditPostDialog,
+  setLayoutSidebar,
+} from "@/redux/slices/dialogSlice";
+import {
+  selecteAccountSchema,
+  SelecteAccSchemaType,
+} from "@/lib/schemas/merger.schema";
 
 export const VisuallyHiddenInput = styled("input")({
   clip: "rect(0 0 0 0)",
@@ -95,7 +103,6 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setLoading] = useState<boolean>(true);
-  const [sideBar, setSideBar] = useState<boolean>(true);
   const [userAccAnchor, setUserAccAnchor] = useState<null | HTMLElement>(null);
   const [settingDialog, setSettingDialog] = useState<boolean>(false);
   const [changePassDialog, setChangePassDialog] = useState<boolean>(false);
@@ -115,20 +122,25 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
   const [PostPhoto, setPostPhoto] = useState<string | null | StaticImageData>(
     null
   );
-  const [selectedMergeAcc, setSelectedMergeAcc] = useState<Record<string, any>>(
-    {}
-  );
+  const [secondaryUser, setSecondaryUser] =
+    useState<Partial<FoundAccsType> | null>(null);
   const mergeAccSeachInput = useRef<HTMLInputElement | null>(null);
 
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
   );
   const PrimaryAccData = {
-    email: "abc1@gmail.com",
+    primaryUser: {
+      email: "abc1@gmail.com",
+    },
   };
 
   const editPostDialog = useSelector(
     (state: RootState) => state.dialogs.editPostDialog
+  );
+
+  const sideBar = useSelector(
+    (state: RootState) => state.dialogs.layoutSidebar
   );
 
   const userData = useSelector((state: RootState) => state.user.userData);
@@ -174,6 +186,7 @@ const UserLayout = ({ children }: { children: ReactNode }) => {
 
   const handleSettingTabs = (event: React.SyntheticEvent, newValue: number) => {
     setSettingActiveTab(newValue);
+    setFilteredAccounts([]);
   };
 
   // Account Form
@@ -459,6 +472,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
       accountReset();
       setUserPic("");
       setSettingActiveTab(0);
+      setFilteredAccounts([]);
     }
   };
 
@@ -473,39 +487,51 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
       setFilteredAccounts([...fetchAccRes.users]);
     } catch (error) {
       console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
     }
   };
 
-  //
+  // Merger process start
   const {
     handleSubmit: selectAccSubmit,
     watch: selectAccWatch,
     control: selectAccControl,
     reset: selectAccReset,
     formState: { errors: selectAccErrors },
-  } = useForm({
-    // resolver: yupResolver(),
+  } = useForm<SelecteAccSchemaType>({
+    resolver: yupResolver(selecteAccountSchema),
   });
 
-  const SelectedAcc = selectAccWatch("selectedAcc");
-
-  const handleCheckAcc = (event: React.ChangeEvent<HTMLInputElement>) => {
-    if (event.target.checked && event.target.value) {
-      setSelectedMergeAcc({
-        emailId: event.target.value,
-      });
-    }
-  };
-
-  const onMergeStart = (data: any) => {
+  const onMergeStart = async (data: SelecteAccSchemaType) => {
     console.log("Selected Accounts: ", data);
+
     dispatch(mergerReset());
-    dispatch(setPrimaryAccData(PrimaryAccData));
+
     dispatch(
-      setSecondaryAccData({
-        email: SelectedAcc,
+      setPrimaryAccData({
+        primaryUser: {
+          userId: userData.userId,
+          userEmail: userData.userEmail,
+        },
+        isVerified: false,
       })
     );
+
+    const findSecondaryInx = filteredAccounts.findIndex(
+      (usr) => usr.user_id === data.secondaryAcc
+    );
+
+    dispatch(
+      setSecondaryAccData({
+        secondaryUser: {
+          userId: filteredAccounts[findSecondaryInx].user_id,
+          userEmail: filteredAccounts[findSecondaryInx].email,
+        },
+        isVerified: false,
+      })
+    );
+
     router.push("/merger");
   };
 
@@ -726,7 +752,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
           <button
             type="button"
             className={`p-2 cursor-pointer`}
-            onClick={() => setSideBar(!sideBar)}
+            onClick={() => dispatch(setLayoutSidebar(!sideBar))}
           >
             <BsLayoutSidebar className="text-xl" />
           </button>
@@ -1090,7 +1116,7 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
           className={`z-999 absolute top-4 left-4 p-2 cursor-pointer transition-[scale] duration-500 ${
             sideBar ? "scale-0" : "scale-100"
           }`}
-          onClick={() => setSideBar(!sideBar)}
+          onClick={() => dispatch(setLayoutSidebar(!sideBar))}
         >
           <BsLayoutSidebar className="text-xl" />
         </button>
@@ -2036,14 +2062,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                       <form onSubmit={selectAccSubmit(onMergeStart)}>
                         <div className="max-h-[200px] overflow-y-auto mb-5">
                           <Controller
-                            name="selectedAcc"
+                            name="secondaryAcc"
                             control={selectAccControl}
-                            rules={{
-                              required: {
-                                value: true,
-                                message: "Please select the account!",
-                              },
-                            }}
                             render={({ field: { onChange, name, value } }) => (
                               <RadioGroup
                                 name={name}
@@ -2057,12 +2077,15 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                                       <li key={`user-acc-${inx}`}>
                                         <FormControlLabel
                                           control={
-                                            <Radio
-                                              value={acc}
-                                              // onChange={handleCheckAcc}
-                                            />
+                                            <Radio value={acc.user_id} />
                                           }
                                           label={acc.email ?? acc.mobile}
+                                          sx={{
+                                            "&.MuiFormControlLabel-root": {
+                                              width: "100%",
+                                              margin: 0,
+                                            },
+                                          }}
                                         />
                                       </li>
                                     ))}
@@ -2079,8 +2102,8 @@ Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem
                           />
                         </div>
                         <p className="text-sm text-red-500 min-h-5 mb-4">
-                          {selectAccErrors.selectedAcc &&
-                            (selectAccErrors.selectedAcc?.message as string)}
+                          {selectAccErrors.secondaryAcc &&
+                            (selectAccErrors.secondaryAcc?.message as string)}
                         </p>
                         <div className="text-center">
                           <button

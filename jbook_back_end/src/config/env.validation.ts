@@ -134,6 +134,10 @@ class EnvVariables {
   @IsNumber()
   @Min(3)
   MAX_FAILED_ATTEMPTS: number;
+
+  @IsString()
+  @IsNotEmpty()
+  HF_API_KEY: string;
 }
 
 // Validation function

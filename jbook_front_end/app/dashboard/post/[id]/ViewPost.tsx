@@ -18,6 +18,9 @@ const ViewPost = ({ id }: { id: string }) => {
   const isMerging = useSelector(
     (state: RootState) => state.merger.mergingProgress.isMerging
   );
+  const sideBar = useSelector(
+    (state: RootState) => state.dialogs.layoutSidebar
+  );
 
   const [isLoading, setLoading] = useState<boolean>(true);
   const [postData, setPostData] = useState<PostData>();
@@ -79,7 +82,11 @@ const ViewPost = ({ id }: { id: string }) => {
   }, []);
 
   return (
-    <div className="relative px-24 py-7 min-h-screen overflow-y-auto">
+    <div
+      className={`relative py-7 min-h-screen overflow-y-auto ${
+        sideBar ? "px-24" : "px-30"
+      }`}
+    >
       {/* Loader */}
       {isLoading && (
         <div className="absolute inset-0 h-full w-full z-1500 bg-white flex items-center justify-center">
@@ -100,7 +107,9 @@ const ViewPost = ({ id }: { id: string }) => {
             {/* Back arrow */}
             <button
               type="button"
-              className="text-black text-[22px] p-1 absolute top-4 left-4"
+              className={`text-black text-[22px] p-2 absolute top-4 left-0 cursor-pointer duration-300 ${
+                sideBar ? "left-4" : "left-16"
+              }`}
               onClick={() => router.push("/dashboard")}
             >
               <FaArrowLeft />

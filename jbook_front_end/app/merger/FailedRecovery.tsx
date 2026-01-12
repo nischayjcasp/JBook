@@ -27,11 +27,11 @@ const FailedRecovery = ({ active }: { active: boolean }) => {
   );
 
   const primaryAccData = useSelector(
-    (state: RootState) => state.merger.primaryAcc
+    (state: RootState) => state.merger.primaryAcc.primaryUser
   );
 
   const secondaryAccData = useSelector(
-    (state: RootState) => state.merger.secondaryAcc
+    (state: RootState) => state.merger.secondaryAcc.secondaryUser
   );
 
   const handleCloseAction = () => {
@@ -72,14 +72,14 @@ const FailedRecovery = ({ active }: { active: boolean }) => {
                 <div className="bg-slate-500 text-white p-2 rounded-lg">
                   <p className="font-semibold">Account :</p>
                 </div>
-                <p>{primaryAccData.email ?? ""}</p>
+                <p>{primaryAccData?.userEmail ?? ""}</p>
               </div>
               <div>AND</div>
               <div className="flex items-center gap-3 border border-slate-500 p-4 rounded-lg">
                 <div className="p-2 bg-slate-500 text-white rounded-lg">
                   <p className="font-semibold">Account :</p>
                 </div>
-                <p>{secondaryAccData.email ?? ""}</p>
+                <p>{secondaryAccData?.userEmail ?? ""}</p>
               </div>
             </div>
           </div>

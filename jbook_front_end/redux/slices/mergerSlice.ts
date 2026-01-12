@@ -1,19 +1,37 @@
 import { Percent } from "@mui/icons-material";
 import { createSlice } from "@reduxjs/toolkit";
+import { UserDataType } from "./userSlice";
 
-const initialState = {
+export interface MergerInitState {
+  mergingProgress: {
+    isMerging: boolean;
+    totalPost: number;
+    mergedPost: number;
+  };
+  mergerActiveStep: number;
+  primaryAcc: {
+    primaryUser: UserDataType | null;
+    isVerified: boolean;
+  };
+  secondaryAcc: {
+    secondaryUser: UserDataType | null;
+    isVerified: boolean;
+  };
+}
+
+const initialState: MergerInitState = {
   mergingProgress: {
     isMerging: false,
     totalPost: 0,
     mergedPost: 0,
   },
-  mergerActiveStep: 6,
+  mergerActiveStep: 0,
   primaryAcc: {
-    email: null,
+    primaryUser: null,
     isVerified: false,
   },
   secondaryAcc: {
-    email: null,
+    secondaryUser: null,
     isVerified: false,
   },
 };
@@ -38,10 +56,10 @@ const mergerSlice = createSlice({
       state.mergerActiveStep = 4;
     },
     setPrimaryAccData: (state, action) => {
-      state.primaryAcc = action.payload;
+      state.primaryAcc = { ...state.primaryAcc, ...action.payload };
     },
     setSecondaryAccData: (state, action) => {
-      state.secondaryAcc = action.payload;
+      state.secondaryAcc = { ...state.secondaryAcc, ...action.payload };
     },
     startMerging: (state, action) => {
       const { mergedPost, totalPost } = action.payload;
@@ -57,7 +75,6 @@ const mergerSlice = createSlice({
     },
     updateMergingProcess: (state, action) => {
       const { mergedPost } = action.payload;
-      console.log("mergedPost:Redux: ", mergedPost);
       state.mergingProgress.mergedPost += mergedPost;
     },
   },

@@ -6,6 +6,7 @@ import { Post } from "./entities/post.entity";
 import { ILike, Like, Repository } from "typeorm";
 import { v2 as cloudinary } from "cloudinary";
 import { UploadLog, UploadStatus } from "./entities/uploadLog.entity";
+import { EmbeddingsService } from "../embeddings/embeddings.service";
 
 @Injectable()
 export class PostService {
@@ -13,7 +14,8 @@ export class PostService {
     @InjectRepository(Post)
     private readonly postsRepo: Repository<Post>,
     @InjectRepository(UploadLog)
-    private readonly uploadLogRepo: Repository<UploadLog>
+    private readonly uploadLogRepo: Repository<UploadLog>,
+    private readonly embeddingService: EmbeddingsService
   ) {
     cloudinary.config({
       cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -150,6 +152,12 @@ export class PostService {
         }
       }
 
+      //Creating the post embedding
+      const postTextString = `${createPostDto.post_title} ${createPostDto.post_text}`;
+      const embedding = await this.embeddingService.embedText(postTextString);
+
+      console.log("embedding: ", embedding);
+
       // Creating new post
       let tempPostData = this.postsRepo.create();
       tempPostData.post_title = createPostDto.post_title;
@@ -158,6 +166,7 @@ export class PostService {
         ? uploadPostImage.secure_url
         : null;
       tempPostData.user_id = user_id;
+      tempPostData.embedding = embedding;
 
       console.log("tempPostData: ", tempPostData);
 

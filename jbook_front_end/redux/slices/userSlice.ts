@@ -6,19 +6,21 @@ export interface ConnectedAccType {
   isVerified: boolean;
 }
 
+export interface UserDataType {
+  userId: string;
+  userName: string;
+  userDisplayName: string;
+  userDob: Date | string;
+  userGender: string;
+  userEmail: string;
+  password: string | undefined;
+  userPhoto: string;
+  conncetedAcc: ConnectedAccType[];
+}
+
 interface UserSliceType {
   sessionId: string;
-  userData: {
-    userId: string;
-    userName: string;
-    userDisplayName: string;
-    userDob: Date | string;
-    userGender: string;
-    userEmail: string;
-    password: string | undefined;
-    userPhoto: string;
-    conncetedAcc: ConnectedAccType[];
-  };
+  userData: UserDataType;
 }
 
 const initialState: UserSliceType = {

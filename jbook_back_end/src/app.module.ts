@@ -18,6 +18,8 @@ import { EmailModule } from "./modules/email/email.module";
 import { MailerModule } from "@nestjs-modules/mailer";
 import { PostModule } from "./modules/post/post.module";
 import { AuthMiddleware } from "./middlewares/auth.middleware";
+import { EmbeddingsModule } from "./modules/embeddings/embeddings.module";
+import { MergerModule } from "./modules/merger/merger.module";
 
 @Module({
   imports: [
@@ -66,6 +68,8 @@ import { AuthMiddleware } from "./middlewares/auth.middleware";
     SessionModule,
     EmailModule,
     PostModule,
+    EmbeddingsModule,
+    MergerModule,
   ],
   controllers: [AppController],
   providers: [AppService, EmailService],
@@ -79,7 +83,8 @@ export class AppModule implements NestModule {
         { path: "/auth/signup/*splat", method: RequestMethod.ALL },
         { path: "auth/forgot/password", method: RequestMethod.ALL },
         { path: "/auth/refresh/token", method: RequestMethod.ALL },
-        { path: "/auth/reset/password", method: RequestMethod.ALL }
+        { path: "/auth/reset/password", method: RequestMethod.ALL },
+        { path: "/merger/compare", method: RequestMethod.ALL }
       )
       .forRoutes("*");
   }

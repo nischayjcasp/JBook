@@ -23,6 +23,13 @@ export class Post {
   @Column({ type: "text", nullable: true })
   post_image: string | null;
 
+  @Column({
+    type: "vector",
+    length: 384,
+    nullable: true,
+  })
+  embedding: number[];
+
   @CreateDateColumn()
   created_at: Date;
 

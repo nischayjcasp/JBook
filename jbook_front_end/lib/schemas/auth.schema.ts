@@ -1,4 +1,5 @@
 import * as yup from "yup";
+
 //Login form schema
 export const loginSchema = yup.object({
   email: yup.string().email("Invalid email").required("Email is required"),

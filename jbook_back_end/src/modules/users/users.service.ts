@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Users } from "./entities/user.entity";
-import { Like, Repository } from "typeorm";
+import { ILike, Like, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import {
@@ -77,7 +77,7 @@ export class UsersService {
         };
       }
 
-      console.log("findUser: ", findUser);
+      // console.log("findUser: ", findUser);
 
       return {
         status: 200,
@@ -116,15 +116,14 @@ export class UsersService {
           mobile: string | null;
         }[] = [];
 
-        const userQueryBuilder = this.usersRepo.createQueryBuilder("users");
-
-        const findUsers = await userQueryBuilder
-          .orderBy(
-            "SIMILARITY(users.display_name, :text) + SIMILARITY(users.email, :text) + SIMILARITY(users.mobile_no, :text)",
-            "DESC"
-          )
-          .setParameter("text", seatchText)
-          .getMany();
+        // Simple find query
+        const findUsers = await this.usersRepo.find({
+          where: [
+            { email: ILike(`%${seatchText}%`) },
+            { display_name: ILike(`%${seatchText}%`) },
+            { mobile_no: ILike(`%${seatchText}%`) },
+          ],
+        });
 
         // console.log("findUsers: ", findUsers);
 
@@ -176,7 +175,17 @@ export class UsersService {
       return {
         status: 200,
         message: "Fetched User successfully",
-        user: findUser,
+        user: {
+          user_id: findUser.id,
+          display_name: findUser.display_name,
+          email: findUser.email,
+          dob: findUser.dob,
+          gender: findUser.gender,
+          mobile_no: findUser.mobile_no,
+          profile_photo: findUser.profile_photo,
+          username: findUser.username,
+          password: findUser.password ? "********" : undefined,
+        },
       };
     } catch (error) {
       console.log("error", error);

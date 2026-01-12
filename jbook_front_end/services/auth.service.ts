@@ -88,10 +88,6 @@ export const otpVerifyLoginAPI = async (
   return API.post("/auth/login/otp", otpPayload);
 };
 
-export const resendOtpAPI = async (): Promise<LoginApiRes> => {
-  return API.get("/auth/login/otp/resend");
-};
-
 // <================ Logout ================>
 
 export const logoutAPI = (): Promise<LoginApiRes> => {
@@ -219,4 +215,18 @@ export const resetPasswordAPI = (
       },
     }
   );
+};
+
+export const sentOtpAPI = (user_id: string): Promise<LoginApiRes> => {
+  return API.get(`/auth/email/otp/${user_id}`);
+};
+
+export const otpVerifyAPI = async (
+  otpPayload: Partial<FotgotPasswordPayload>
+): Promise<LoginApiRes> => {
+  return API.post("/auth/email/otp/verify", otpPayload);
+};
+
+export const resendOtpAPI = async (): Promise<LoginApiRes> => {
+  return API.get("/auth/login/otp/resend");
 };

@@ -722,4 +722,17 @@ export class AuthController {
       device_id
     );
   }
+
+  @Get("email/otp/:id")
+  emailOtpCntr(@Req() req: Request, @Param("id") id: string) {
+    return this.authService.sendEmailOtp(id);
+  }
+
+  @Post("email/otp/verify")
+  emailOtpVerifyCntr(
+    @Body() loginWithOtpDto: Partial<LoginWithOtpDto>,
+    @Req() req: Request
+  ) {
+    return this.authService.verifyEmailOtp(loginWithOtpDto);
+  }
 }

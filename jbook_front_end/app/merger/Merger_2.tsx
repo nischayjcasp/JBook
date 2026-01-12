@@ -1,3 +1,5 @@
+"use client";
+
 import { AppDispatch, ReduxStore, RootState } from "@/redux/store";
 import {
   mergerNext,
@@ -22,8 +24,12 @@ import Image from "next/image";
 import defaultImage from "@/app/assets/images/randomUser.jpeg";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import MergerPostCard from "@/components/merger/MergerPostCard";
+import MainLoader from "../loading";
+import { mergerCompareAPI } from "@/services/merger.service";
+import { MergerStep1LogPayloadType } from "@/services/merger.type";
+import { toast } from "react-toastify";
 
 const Merger_2 = ({ active }: { active: boolean }) => {
   const router = useRouter();
@@ -33,14 +39,40 @@ const Merger_2 = ({ active }: { active: boolean }) => {
   const mergerActiveStep = useSelector(
     (state: RootState) => state.merger.mergerActiveStep
   );
-  const primaryAccData = useSelector(
-    (state: RootState) => state.merger.primaryAcc
+  const PrimaryAccData = useSelector(
+    (state: RootState) => state.merger.primaryAcc.primaryUser
   );
-  const secondaryAccData = useSelector(
-    (state: RootState) => state.merger.secondaryAcc
+  const SecondaryAccData = useSelector(
+    (state: RootState) => state.merger.secondaryAcc.secondaryUser
   );
   const [accProfilExpand, setAccProfilExpand] = useState<boolean>(true);
   const [userPostsExpand, setUserPostsExpand] = useState<boolean>(true);
+  const [loader, setLoader] = useState(true);
+
+  const compareUsersData = async () => {
+    try {
+      const comparePayload: MergerStep1LogPayloadType = {
+        primaryAcc: PrimaryAccData?.userId as string,
+        secondaryAcc: SecondaryAccData?.userId as string,
+      };
+      const mergerCompareRes = await mergerCompareAPI(comparePayload);
+
+      console.log("mergerCompareRes: ", mergerCompareRes);
+      toast.success(mergerCompareRes.message);
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    }
+  };
+
+  useEffect(() => {
+    if (!PrimaryAccData || !SecondaryAccData) {
+      router.replace("/dashboard");
+    }
+
+    compareUsersData();
+  }, []);
 
   const handleBackAction = () => {
     dispatch(mergerPrev());
@@ -61,31 +93,13 @@ const Merger_2 = ({ active }: { active: boolean }) => {
 
   const handleMergerSubmit = (data: any) => {
     console.log("Data", data);
-    // dispatch(mergerNext());
-    router.push("/dashboard");
-    dispatch(startMerging({ mergedPost: 0, totalPost: 100 }));
-
-    const mergingInterval = setInterval(() => {
-      const MergedPosts =
-        ReduxStore.getState().merger.mergingProgress.mergedPost;
-      const TotalPosts = ReduxStore.getState().merger.mergingProgress.totalPost;
-
-      console.log("Interval is running..", MergedPosts, TotalPosts);
-
-      if (MergedPosts < TotalPosts) {
-        dispatch(updateMergingProcess({ mergedPost: 10 }));
-      } else {
-        clearInterval(mergingInterval);
-        dispatch(
-          stopMerging({ mergedPost: MergedPosts, totalPost: TotalPosts })
-        );
-        router.push("/merger");
-        dispatch(mergeSuccess());
-      }
-    }, 1000);
   };
 
   const UserPosts = [1, 2, 3, 4, 5, 6];
+
+  if (loader && mergerActiveStep === 2) {
+    return <MainLoader />;
+  }
 
   return (
     <div
@@ -111,7 +125,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <div className="bg-primary text-white p-2 rounded-lg">
                 <p className="font-semibold">Primary :</p>
               </div>
-              <p>{primaryAccData.email ?? " "}</p>
+              <p>{PrimaryAccData?.userEmail ?? " "}</p>
             </div>
             <div>
               <FaArrowLeftLong className="text-2xl" />
@@ -120,7 +134,7 @@ const Merger_2 = ({ active }: { active: boolean }) => {
               <div className="p-2 bg-slate-500 text-white rounded-lg">
                 <p className="font-semibold">Secondary :</p>
               </div>
-              <p>{secondaryAccData.email ?? " "}</p>
+              <p>{SecondaryAccData?.userEmail ?? " "}</p>
             </div>
           </div>
         </div>
@@ -156,13 +170,13 @@ const Merger_2 = ({ active }: { active: boolean }) => {
                   <p className="w-1/2 text-center font-semibold">
                     Primary&nbsp;
                     <span className="font-normal text-slate-500">
-                      ({primaryAccData.email ?? " "})
+                      ({PrimaryAccData?.userEmail})
                     </span>
                   </p>
                   <p className="w-1/2 text-center font-semibold">
                     Secondary&nbsp;
                     <span className="font-normal text-slate-500">
-                      ({secondaryAccData.email ?? " "})
+                      ({SecondaryAccData?.userEmail})
                     </span>
                   </p>
                 </div>
@@ -583,13 +597,13 @@ const Merger_2 = ({ active }: { active: boolean }) => {
                     <p className="w-1/2 text-center font-semibold">
                       Primary&nbsp;
                       <span className="font-normal text-slate-500">
-                        ({primaryAccData.email ?? " "})
+                        ({PrimaryAccData?.userEmail})
                       </span>
                     </p>
                     <p className="w-1/2 text-center font-semibold">
                       Secondary&nbsp;
                       <span className="font-normal text-slate-500">
-                        ({secondaryAccData.email ?? " "})
+                        ({SecondaryAccData?.userEmail})
                       </span>
                     </p>
                   </div>
@@ -711,14 +725,14 @@ const Merger_2 = ({ active }: { active: boolean }) => {
                               <>
                                 <span>From primary account</span>
                                 <span className="font-normal text-slate-500">
-                                  ({primaryAccData.email ?? " "})
+                                  ({PrimaryAccData?.userEmail})
                                 </span>
                               </>
                             ) : (
                               <>
                                 <span>From secondary account</span>
                                 <span className="font-normal text-slate-500">
-                                  ({secondaryAccData.email ?? " "})
+                                  ({SecondaryAccData?.userEmail})
                                 </span>
                               </>
                             )}

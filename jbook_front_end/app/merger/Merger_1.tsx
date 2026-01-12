@@ -7,6 +7,7 @@ import {
 } from "@/redux/slices/mergerSlice";
 import {
   Checkbox,
+  CircularProgress,
   Dialog,
   FormControlLabel,
   Radio,
@@ -19,8 +20,25 @@ import { IoMdClose } from "react-icons/io";
 import { IoShieldCheckmarkSharp } from "react-icons/io5";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { fetchUserByIdAPI, fetchUserData } from "@/services/user.serivce";
+import { RiErrorWarningLine } from "react-icons/ri";
+import {
+  OtpVerificationSchema,
+  OtpVerificationType,
+} from "@/lib/schemas/auth.schema";
+import { yupResolver } from "@hookform/resolvers/yup";
+import { FotgotPasswordPayload } from "@/services/auth.type";
+import {
+  otpVerifyAPI,
+  resendOtpAPI,
+  sentOtpAPI,
+} from "@/services/auth.service";
+import { OtpInput } from "reactjs-otp-input";
+import OtpTimer from "@/components/auth/OtpTimer";
+import { mergerInitialLog } from "@/services/merger.service";
 
 export interface SelectedAccType {
+  userId: string;
   emailId: string | null;
   isVerified: boolean;
   startTimer: boolean;
@@ -32,45 +50,32 @@ const Merger_1 = ({ active }: { active: boolean }) => {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const [instrucDialog, setInstrucDialog] = useState(false);
+  const [otpDialog, setOtpDialog] = useState<{
+    status: boolean;
+    email_id: string;
+    user_id: string;
+    otp_id: string;
+  }>({
+    status: false,
+    email_id: "",
+    user_id: "",
+    otp_id: "",
+  });
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isAllVerified, setIsAllVerified] = useState<boolean>(false);
+  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+  const [isOtpExpired, setIsOtpExpired] = useState<boolean>(false);
 
-  const PrimaryAccEmail = useSelector(
-    (state: RootState) => state.merger.primaryAcc.email
+  const PrimaryAccData = useSelector(
+    (state: RootState) => state.merger.primaryAcc.primaryUser
   );
-  const SeconadaryAccEmail = useSelector(
-    (state: RootState) => state.merger.secondaryAcc.email
+  const SeconadaryAccData = useSelector(
+    (state: RootState) => state.merger.secondaryAcc.secondaryUser
   );
 
   const [errors, setErrors] = useState<string | null>(null);
 
   const [selectedAcc, setSelectedAcc] = useState<SelectedAccType[]>([]);
-
-  // Setting the accounts list
-  useEffect(() => {
-    if (PrimaryAccEmail) {
-      setSelectedAcc([
-        {
-          emailId: PrimaryAccEmail,
-          isVerified: false,
-          startTimer: false,
-          isPrimary: false,
-          isExpired: false,
-        },
-      ]);
-    }
-
-    if (SeconadaryAccEmail) {
-      setSelectedAcc((prev) => [
-        ...prev,
-        {
-          emailId: SeconadaryAccEmail,
-          isVerified: false,
-          startTimer: false,
-          isPrimary: false,
-          isExpired: false,
-        },
-      ]);
-    }
-  }, []);
 
   const mergerActiveStep = useSelector(
     (state: RootState) => state.merger.mergerActiveStep
@@ -84,6 +89,56 @@ const Merger_1 = ({ active }: { active: boolean }) => {
     setInstrucDialog(false);
   };
 
+  const openOtpDialog = (user_id: string, email_id: string, otp_id: string) => {
+    setOtpDialog({
+      status: true,
+      email_id,
+      user_id,
+      otp_id,
+    });
+  };
+
+  const closeOtpDialog = () => {
+    setOtpDialog({
+      status: false,
+      email_id: "",
+      user_id: "",
+      otp_id: "",
+    });
+
+    otpReset();
+    setIsTimerRunning(false);
+    setIsOtpExpired(false);
+  };
+
+  // Setting the accounts list
+  useEffect(() => {
+    if (PrimaryAccData && SeconadaryAccData) {
+      openInstrucDialog();
+
+      setSelectedAcc([
+        {
+          userId: PrimaryAccData.userId,
+          emailId: PrimaryAccData.userEmail,
+          isVerified: true,
+          startTimer: false,
+          isPrimary: true,
+          isExpired: false,
+        },
+        {
+          userId: SeconadaryAccData.userId,
+          emailId: SeconadaryAccData.userEmail,
+          isVerified: true,
+          startTimer: false,
+          isPrimary: false,
+          isExpired: false,
+        },
+      ]);
+    } else {
+      router.replace("/dashboard");
+    }
+  }, []);
+
   // User consent form
   const {
     control: userConsentControl,
@@ -95,27 +150,16 @@ const Merger_1 = ({ active }: { active: boolean }) => {
     },
   });
 
-  const handleUserConsent = (data: any) => {
+  const handleUserConsent = async (data: any) => {
     console.log("user consent:", data);
     closeInstrucDialog();
-  };
-
-  //   Email verification
-  const sendEmailVerification = (indexNo: number) => {
-    console.log(
-      "selectedAcc[indexNo].startTimer",
-      selectedAcc[indexNo].startTimer
-    );
-    if (selectedAcc[indexNo].startTimer === false) {
-      let temp = [...selectedAcc];
-      temp[indexNo].startTimer = true;
-      setSelectedAcc(temp);
-      toast.info(`Verification link to sent to ${temp[indexNo].emailId}`);
-    } else {
-      toast.error(
-        "Link is already sent, once it is expired you can resend it!"
-      );
-    }
+    // try {
+    //   const startMergerLog = await mergerInitialLog();
+    // } catch (error) {
+    //   console.log("Error: ", error);
+    //   let err = error as { message: string };
+    //   toast.error(err.message);
+    // }
   };
 
   const handleBackAction = () => {
@@ -129,7 +173,11 @@ const Merger_1 = ({ active }: { active: boolean }) => {
     handleSubmit: primaryAccSubmit,
     setError: primaryAccSetError,
     formState: { errors: primaryAccErrors },
-  } = useForm();
+  } = useForm({
+    defaultValues: {
+      primary_account: PrimaryAccData?.userId,
+    },
+  });
 
   const PrimaryAcc = primaryAccWatch("primary_account");
 
@@ -139,7 +187,7 @@ const Merger_1 = ({ active }: { active: boolean }) => {
       acc.isPrimary = false;
     });
     const selectedAccInx = selectedAcc.findIndex(
-      (acc) => acc.emailId === PrimaryAcc
+      (acc) => acc.userId === PrimaryAcc
     );
     if (selectedAccInx != -1) {
       selectedAcc[selectedAccInx].isPrimary = true;
@@ -147,43 +195,193 @@ const Merger_1 = ({ active }: { active: boolean }) => {
     }
   }, [PrimaryAcc]);
 
-  const handleNextStep = (data: any) => {
+  const handleNextStep = async (data: any) => {
     console.log("data: ", data);
-    //Validate accounts
-    // for (let i = 0; i < selectedAcc.length; i++) {
-    //   if (!selectedAcc[i].isVerified) {
-    //     setErrors(`Please verify account: ${selectedAcc[i].emailId}`);
-    //     return;
-    //   }
-    // }
 
-    //Setting primary & secondary account in redux
-    const selectedAccInx = selectedAcc.findIndex(
-      (acc) => acc.emailId !== data.primary_account
-    );
+    try {
+      // Validate accounts
+      for (let i = 0; i < selectedAcc.length; i++) {
+        if (!selectedAcc[i].isVerified) {
+          setErrors(`Please verify account: ${selectedAcc[i].emailId}`);
+          return;
+        }
+      }
 
-    if (selectedAccInx != -1) {
-      dispatch(
-        setPrimaryAccData({
-          email: data.primary_account,
-        })
+      setIsLoading(true);
+      setIsAllVerified(true);
+
+      // Fetch primary users data
+      const fetchPrimaryUser = await fetchUserByIdAPI(data.primary_account);
+
+      console.log("fetchPrimaryUser:", fetchPrimaryUser);
+
+      if (fetchPrimaryUser && fetchPrimaryUser.status === 200) {
+        dispatch(
+          setPrimaryAccData({
+            primaryUser: {
+              userId: fetchPrimaryUser.user.user_id,
+              userName: fetchPrimaryUser.user.username,
+              userDisplayName: fetchPrimaryUser.user.display_name,
+              userDob: fetchPrimaryUser.user.dob,
+              userGender: fetchPrimaryUser.user.gender,
+              userEmail: fetchPrimaryUser.user.email,
+              password: fetchPrimaryUser.user.password,
+              userPhoto: fetchPrimaryUser.user.profile_photo,
+              conncetedAcc: [],
+            },
+            isVerified: true,
+          })
+        );
+      } else {
+        throw new Error(fetchPrimaryUser.message);
+      }
+
+      // Fetch secondary users data
+      const secondaryUserInx = selectedAcc.findIndex(
+        (acc) => acc.userId !== data.primary_account
       );
-      dispatch(
-        setSecondaryAccData({
-          email: selectedAcc[selectedAccInx].emailId,
-        })
+
+      const fetchSecondaryUser = await fetchUserByIdAPI(
+        selectedAcc[secondaryUserInx].userId
       );
+
+      console.log("fetchSecondaryUser:", fetchSecondaryUser);
+
+      if (fetchSecondaryUser && fetchSecondaryUser.status === 200) {
+        dispatch(
+          setSecondaryAccData({
+            secondaryUser: {
+              userId: fetchSecondaryUser.user.user_id,
+              userName: fetchSecondaryUser.user.username,
+              userDisplayName: fetchSecondaryUser.user.display_name,
+              userDob: fetchSecondaryUser.user.dob,
+              userGender: fetchSecondaryUser.user.gender,
+              userEmail: fetchSecondaryUser.user.email,
+              password: fetchSecondaryUser.user.password,
+              userPhoto: fetchSecondaryUser.user.profile_photo,
+              conncetedAcc: [],
+            },
+            isVerified: true,
+          })
+        );
+      } else {
+        throw new Error(fetchSecondaryUser.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      const err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
     }
-    console.log("selectedAccInx: ", selectedAccInx);
-    console.log("Selected Acc. State: ", selectedAcc);
 
     toast.success("Merger Step 1 completed!");
 
     dispatch(mergerNext());
   };
 
+  // <============================ Account verification ============================>
+
+  // Forgot password Form
+  const {
+    handleSubmit: otpSubmit,
+    control: otpControl,
+    reset: otpReset,
+    setError: otpSetError,
+    formState: { errors: otpErrors },
+  } = useForm<OtpVerificationType>({
+    resolver: yupResolver(OtpVerificationSchema),
+    defaultValues: {
+      otp: "",
+    },
+  });
+
+  useEffect(() => {
+    if (isOtpExpired) {
+      toast.warn("OTP is expired!");
+    }
+  }, [isOtpExpired]);
+
+  const sentVerificationOTP = async (user_id: string, email_id: string) => {
+    console.log("user_id: ", user_id);
+    console.log("email_id: ", email_id);
+    setOtpDialog({
+      status: false,
+      user_id,
+      email_id,
+      otp_id: "",
+    });
+
+    setIsLoading(true);
+
+    try {
+      const sentOtpRes = await sentOtpAPI(user_id);
+
+      console.log("sentOtpRes: ", sentOtpRes);
+
+      if (sentOtpRes.status === 200 && sentOtpRes.otp_id) {
+        openOtpDialog(user_id, email_id, sentOtpRes.otp_id);
+        toast.success(sentOtpRes.message);
+        setIsTimerRunning(true);
+      } else {
+        toast.error(sentOtpRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpVerification = async (data: OtpVerificationType) => {
+    console.log("Data: ", data);
+    setIsLoading(true);
+
+    try {
+      //OTP up payload
+      const payload: Partial<FotgotPasswordPayload> = {
+        otp_id: otpDialog.otp_id,
+        otp: data.otp,
+      };
+
+      const otpVerifyRes = await otpVerifyAPI(payload);
+
+      console.log("otpVerifyRes: ", otpVerifyRes);
+
+      if (otpVerifyRes.status === 200) {
+        toast.success(otpVerifyRes.message);
+
+        console.log("handleOtpVerification-user_id: ", otpDialog.user_id);
+        console.log("handleOtpVerification-email_id: ", otpDialog.email_id);
+
+        const findAccInx = selectedAcc.findIndex(
+          (acc) => acc.userId === otpDialog.user_id
+        );
+
+        selectedAcc[findAccInx].isVerified = true;
+
+        console.log("selectedAcc: ", selectedAcc);
+
+        setSelectedAcc([...selectedAcc]);
+
+        closeOtpDialog();
+      } else {
+        toast.error(otpVerifyRes.message);
+      }
+    } catch (error) {
+      console.log("Error: ", error);
+      let err = error as { message: string };
+      toast.error(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
+      {/* Main Page content */}
       <div
         className={`px-16 flex-1 top-0 left-0 right-0 flex flex-col ${
           active
@@ -232,8 +430,14 @@ const Merger_1 = ({ active }: { active: boolean }) => {
                             {/* Email */}
                             <td className="p-1.5 w-1/2">
                               <FormControlLabel
-                                value={acc.emailId}
-                                control={<Radio value={acc.emailId} />}
+                                value={acc.userId}
+                                disabled={isLoading}
+                                control={
+                                  <Radio
+                                    value={acc.userId}
+                                    checked={acc.isPrimary}
+                                  />
+                                }
                                 label={acc.emailId}
                                 className="w-full"
                               />
@@ -241,7 +445,7 @@ const Merger_1 = ({ active }: { active: boolean }) => {
 
                             {/* Verified badge */}
                             <td className="p-1.5">
-                              <div>
+                              <div className="w-full text-center">
                                 {acc.isVerified ? (
                                   <button
                                     type="button"
@@ -254,21 +458,10 @@ const Merger_1 = ({ active }: { active: boolean }) => {
                                   <button
                                     type="button"
                                     disabled={acc.startTimer}
-                                    className="w-[90px] mx-auto flex items-center gap-1 text-sm bg-primary/90 hover:bg-primary text-white px-1.5 py-1 rounded-sm cursor-pointer
-                              disabled:bg-slate-500 disabled:cursor-none"
-                                    onClick={() => {
-                                      sendEmailVerification(inx);
-                                    }}
+                                    className="flex justify-center items-center gap-1 text-sm bg-red-600 text-white px-1.5 py-1 rounded-sm"
                                   >
-                                    {acc.isExpired ? (
-                                      <p className="w-full text-center">
-                                        Resend
-                                      </p>
-                                    ) : (
-                                      <p className="w-full text-center">
-                                        Verify
-                                      </p>
-                                    )}
+                                    <RiErrorWarningLine className="text-xl" />
+                                    <span>Unverified</span>
                                   </button>
                                 )}
                               </div>
@@ -287,16 +480,33 @@ const Merger_1 = ({ active }: { active: boolean }) => {
                               )}
                             </td>
 
-                            {/* Timer */}
-                            <td className="min-w-[80px]">
-                              <div className="flex items-center gap-3">
-                                {/* Timer */}
-                                {acc.startTimer && (
-                                  <EmailVerifyTimer
-                                    props={{ inx, selectedAcc, setSelectedAcc }}
-                                  />
-                                )}
-                              </div>
+                            <td className="">
+                              {!acc.isVerified && (
+                                <button
+                                  type="button"
+                                  disabled={isLoading}
+                                  className="min-w-[90px] mx-auto text-center text-sm bg-primary/90 hover:bg-primary text-white px-1.5 py-1 rounded-sm disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 flex justify-center items-center gap-2"
+                                  onClick={() =>
+                                    sentVerificationOTP(
+                                      acc.userId,
+                                      acc.emailId as string
+                                    )
+                                  }
+                                >
+                                  {isLoading &&
+                                    otpDialog.user_id === acc.userId && (
+                                      <CircularProgress
+                                        size={24}
+                                        sx={{
+                                          "&.MuiCircularProgress-root": {
+                                            color: "#62748e",
+                                          },
+                                        }}
+                                      />
+                                    )}
+                                  Verify
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -326,8 +536,19 @@ const Merger_1 = ({ active }: { active: boolean }) => {
 
             <button
               type="submit"
-              className="min-w-[90px] py-1.5 bg-blue-700 rounded-sm text-white font-medium cursor-pointer"
+              disabled={isLoading}
+              className="min-w-[90px] py-1.5 bg-blue-700 rounded-sm text-white font-medium cursor-pointer disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 flex justify-center items-center gap-2"
             >
+              {isLoading && isAllVerified && (
+                <CircularProgress
+                  size="16px"
+                  sx={{
+                    "&.MuiCircularProgress-root": {
+                      color: "#62748e",
+                    },
+                  }}
+                />
+              )}
               Next
             </button>
           </div>
@@ -372,12 +593,11 @@ const Merger_1 = ({ active }: { active: boolean }) => {
           <div className="p-4 flex-1 overflow-y-auto">
             <p>Please note we are merging the account as mentioned below</p>
             <ul className="ps-10 list-disc py-4">
-              <li>abc@gmail.com</li>
-              <li>abc1@gmail.com</li>
-              <li>abc2@gmail.com</li>
+              <li className="font-semibold">{PrimaryAccData?.userEmail}</li>
+              <li className="font-semibold">{SeconadaryAccData?.userEmail}</li>
             </ul>
 
-            <p className="mb-4 font-semibold">
+            <p className="mb-4">
               To avoid any interruption in merger we will log out the these 2
               account from all other devices. Once merging is finish you can
               login in with your credentials.
@@ -388,19 +608,11 @@ const Merger_1 = ({ active }: { active: boolean }) => {
               archived so that in single Merged account you can access from both
               account credentials.
             </p>
-            <p className="mb-4 text-red-500">
-              Note: This merger is Irreversible so once data merge we can not
-              undo it.
-            </p>
-            {/* <p className="mb-4">
-              Please give us your consent to go ahead with merger of account
-              mentioned above.
-            </p> */}
           </div>
 
           {/* Footer */}
           <div className="p-4 text-center">
-            <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 cursor-pointer">
               <Controller
                 name="merger_user_content"
                 control={userConsentControl}
@@ -422,7 +634,7 @@ const Merger_1 = ({ active }: { active: boolean }) => {
                   merging process.
                 </p>
               </div>
-            </div>
+            </label>
 
             <p className="text-[13px] min-h-5 text-red-700 text-left ps-5">
               {userConsentErrors.merger_user_content
@@ -438,6 +650,149 @@ const Merger_1 = ({ active }: { active: boolean }) => {
             </button>
           </div>
         </form>
+      </Dialog>
+
+      {/* OTP Verification Doalig */}
+      <Dialog
+        open={otpDialog.status}
+        onClose={closeOtpDialog}
+        sx={{
+          "& .MuiDialog-paper": {
+            borderRadius: "10px",
+            overflow: "hidden",
+          },
+        }}
+      >
+        <div className="w-xl bg-white h-[calc(100vh-64px)]">
+          {/* header */}
+          <div className="p-4 font-semibold bg-primary text-white border-b flex justify-between">
+            <p>Account Verification</p>
+            <button
+              type="button"
+              disabled={isLoading}
+              onClick={closeOtpDialog}
+              className="cursor-pointer disabled:text-slate-500 disabled:cursor-default"
+            >
+              <IoMdClose className="text-2xl" />
+            </button>
+          </div>
+
+          {/* Main content */}
+          <div className="p-4">
+            <p className="font-semibold text-2xl sm:text-[32px] leading-normal mb-4">
+              OTP Verification
+            </p>
+
+            <p className="text-sm">
+              Please enter the OTP(One Time Password) sent to&nbsp;
+              <span className="font-semibold underline underline-offset-2">
+                {otpDialog.status ? otpDialog.email_id : ""}
+              </span>
+              &nbsp;to complete verification.
+            </p>
+
+            <form
+              className="w-full"
+              onSubmit={otpSubmit(handleOtpVerification)}
+            >
+              {/* OTP */}
+              <div className="my-12">
+                <div className="mb-2">
+                  <Controller
+                    name="otp"
+                    control={otpControl}
+                    render={({ field: { value, onChange } }) => (
+                      <OtpInput
+                        value={value}
+                        onChange={onChange}
+                        numInputs={6}
+                        containerStyle="p-4 flex justify-center items-center gap-4"
+                        inputStyle="min-w-12 h-12 text-xl font-semibold border rounded-md"
+                        isDisabled={isLoading}
+                        disabledStyle="bg-slate-300 border-slate-500"
+                        hasErrored={otpErrors.otp ? true : false}
+                        errorStyle="border-2 border-red-600"
+                        isInputNum={true}
+                        isInputSecure={true}
+                      />
+                    )}
+                  />
+
+                  <p className="text-sm text-red-600 min-h-5">
+                    {otpErrors.otp ? otpErrors.otp.message : " "}
+                  </p>
+                </div>
+
+                {
+                  <div className="flex justify-between items-center mb-10">
+                    {/* Timer */}
+                    <div className="flex items-center gap-2">
+                      {isTimerRunning && (
+                        <>
+                          <span>Remaining time:</span>
+                          <OtpTimer
+                            props={{
+                              time: 60,
+                              startTimerNow: isTimerRunning,
+                              setStartTimerNow: setIsTimerRunning,
+                              setIsExpired: setIsOtpExpired,
+                            }}
+                          />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Resend */}
+                    <div className="flex items-center gap-2">
+                      <span>Don't recevied the code?</span>
+                      <button
+                        type="button"
+                        disabled={isLoading}
+                        className="font-semibold cursor-pointer text-primary disabled:text-slate-500 disabled:cursor-default flex items-center gap-1"
+                        onClick={() =>
+                          sentVerificationOTP(
+                            otpDialog.user_id,
+                            otpDialog.email_id
+                          )
+                        }
+                      >
+                        {isLoading && isOtpExpired && (
+                          <CircularProgress
+                            size={16}
+                            sx={{
+                              "&.MuiCircularProgress-root": {
+                                color: "#62748e",
+                              },
+                            }}
+                          />
+                        )}
+                        Resend
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full py-3 bg-primary cursor-pointer text-white font-semibold text-lg rounded-lg disabled:bg-slate-200 disabled:cursor-default disabled:text-slate-500 flex justify-center items-center gap-2"
+              >
+                {isLoading && (
+                  <CircularProgress
+                    size={24}
+                    sx={{
+                      "&.MuiCircularProgress-root": {
+                        color: "#62748e",
+                      },
+                    }}
+                  />
+                )}
+                Verify
+              </button>
+            </form>
+          </div>
+        </div>
       </Dialog>
     </>
   );

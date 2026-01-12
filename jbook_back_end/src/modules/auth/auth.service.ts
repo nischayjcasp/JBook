@@ -1362,4 +1362,91 @@ export class AuthService {
       };
     }
   }
+
+  async sendEmailOtp(user_id: string) {
+    const findUser = await this.usersRepo.findOne({
+      where: {
+        id: user_id,
+      },
+    });
+
+    if (!findUser) {
+      return {
+        status: 400,
+        message: "User do not found!",
+      };
+    }
+
+    const otpMailRes = await this.emailService.sentOtp({
+      email: findUser.email,
+    });
+
+    console.log("otp: ", otpMailRes);
+
+    if (otpMailRes.status === 200) {
+      return {
+        status: 200,
+        otp_id: otpMailRes.otp_id,
+      };
+    } else {
+      return {
+        status: 500,
+        otp_id: otpMailRes.otp_id,
+      };
+    }
+  }
+
+  async verifyEmailOtp(verifyOtpDto: Partial<LoginWithOtpDto>) {
+    try {
+      // verify otp
+      const findOtp = await this.otpRepo.findOne({
+        where: {
+          id: verifyOtpDto.otp_id,
+        },
+      });
+
+      if (!findOtp) {
+        return {
+          status: 400,
+          message: "OTP id do not found",
+        };
+      }
+
+      console.log("findOtp: ", findOtp);
+
+      const isOtpValid =
+        findOtp.otp === verifyOtpDto.otp &&
+        findOtp.expires_at > new Date(Date.now()) &&
+        !findOtp.is_otp_used;
+
+      console.log(
+        findOtp.otp === verifyOtpDto.otp,
+        findOtp.expires_at > new Date(Date.now()),
+        !findOtp.is_otp_used
+      );
+
+      console.log(findOtp.otp, verifyOtpDto.otp);
+      console.log(findOtp.expires_at, new Date(Date.now()));
+      console.log(findOtp.is_otp_used);
+
+      if (isOtpValid) {
+        return {
+          status: 200,
+          message: "OTP verified successfully",
+        };
+      } else {
+        return {
+          status: 400,
+          message: "Invalid OTP!",
+        };
+      }
+    } catch (error) {
+      console.log("Error: ", error.message);
+
+      return {
+        status: 500,
+        message: "Error occurred during OTP verification",
+      };
+    }
+  }
 }
